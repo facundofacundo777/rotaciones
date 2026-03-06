@@ -1245,7 +1245,10 @@ function procLote(){
       if(srv)nb=srv.nombre;
     }
     const fechas=detFechas(resto);if(!fechas.length)return;
-    res.push({nb,srv,fechas});
+    // Detectar motivo — buscar "por X" al final del texto
+    const motMatch=resto.match(/\bpor\s+([a-záéíóúüñ][a-záéíóúüñ\s]{1,30}?)(?:\s*$|\s*[,.])/i);
+    const mot=motMatch?motMatch[1].trim():'';
+    res.push({nb,srv,fechas,mot});
   });
   if(!res.length){document.getElementById('lote-res').innerHTML='<div class="al al-w" style="margin-top:10px">No se detectaron fechas. Usá formato: "Nombre: no puedo el 5 y el 12"</div>';return;}
   let ap=0;let h='<div style="margin-top:12px">';
@@ -1255,7 +1258,7 @@ function procLote(){
       const k=`${r.srv.id}-${mes}`;if(!DB.disp[k])DB.disp[k]=[];
       r.fechas.forEach(d=>{const f=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const norm=DB.disp[k].map(x=>typeof x==='string'?{f:x,mot:''}:x);
-        if(!norm.find(x=>x.f===f))norm.push({f,mot:'WhatsApp'});
+        if(!norm.find(x=>x.f===f))norm.push({f,mot:r.mot||''});
         DB.disp[k]=norm;});
       ap++;h+=`<div class="lm lm-ok"><span>✅ <strong>${r.srv.nombre}</strong></span><span style="font-family:var(--mono);font-size:.72rem;color:var(--green)">${fs}</span></div>`;
     } else {
