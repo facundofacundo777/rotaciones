@@ -1177,8 +1177,8 @@ function procLote(){
     const nums=new Set();
     const tl=t.toLowerCase();
 
-    // "todos los domingos", "todos los sábados", etc.
-    const todosRe=/todos\s+los\s+(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bados?)/gi;
+    // "todos los domingos", "los sábados", "los domingos", etc.
+    const todosRe=/(?:todos\s+)?los\s+(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bados?)/gi;
     let r;
     while((r=todosRe.exec(tl))!==null){
       const dow=DMAP[r[1].replace(/s$/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
