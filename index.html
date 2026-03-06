@@ -1216,20 +1216,34 @@ function procLote(){
 
     return[...nums].sort((a,b)=>a-b);
   };
-  // Separar por línea O por nombre (detectar múltiples personas en el mismo texto)
+  // Separar por línea
   const lineas=txt.split('\n').filter(l=>l.trim());
   const res=[];
   lineas.forEach(l=>{
-    // Intentar separar por ":" o "–" o "-"
-    const partes=l.split(/[:–\-]/);
-    const nb=partes[0].trim();
-    const resto=partes.length>1?partes.slice(1).join(' '):l;
-    const srv=DB.servidores.find(s=>{
-      if(s.activo===false)return false;
-      const n=s.nombre.toLowerCase();const b=nb.toLowerCase();
-      // Buscar por nombre completo, primer nombre, o apellido
-      return n.includes(b)||b.includes(n.split(' ')[0])||n.split(' ').some(p=>b.includes(p)&&p.length>2);
-    });
+    // Intentar separar por ":" o "–"
+    const partes=l.split(/[:–]/);
+    let nb, resto, srv;
+    if(partes.length>1){
+      nb=partes[0].trim();
+      resto=partes.slice(1).join(' ');
+      srv=DB.servidores.find(s=>{
+        if(s.activo===false)return false;
+        const n=s.nombre.toLowerCase();const b=nb.toLowerCase();
+        return n.includes(b)||b.includes(n.split(' ')[0])||n.split(' ').some(p=>b.includes(p)&&p.length>2);
+      });
+    } else {
+      // Sin separador — buscar qué servidor aparece mencionado en el texto
+      resto=l;nb=l;
+      srv=DB.servidores.find(s=>{
+        if(s.activo===false)return false;
+        const partsN=s.nombre.toLowerCase().split(' ');
+        const tl=l.toLowerCase();
+        // Requiere al menos 2 partes del nombre que coincidan, o el nombre completo
+        const matches=partsN.filter(p=>p.length>2&&tl.includes(p));
+        return matches.length>=2||(partsN.length===1&&tl.includes(partsN[0]));
+      });
+      if(srv)nb=srv.nombre;
+    }
     const fechas=detFechas(resto);if(!fechas.length)return;
     res.push({nb,srv,fechas});
   });
