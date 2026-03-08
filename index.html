@@ -615,7 +615,7 @@ const DEFAULT_AREAS=[
   {id:'a8',nombre:'Fotografía',    icono:'📷',color:'red'},
 ];
 
-function dbAreas(){return DB.areas&&DB.areas.length?DB.areas:[DEFAULT_AREAS[0],DEFAULT_AREAS[1],DEFAULT_AREAS[2]];}
+function dbAreas(){return DB.areas&&DB.areas.length?DB.areas:[...DEFAULT_AREAS];}
 function tag(nombre){
   const a=dbAreas().find(x=>x.nombre===nombre);
   if(!a)return `<span class="tag" style="background:rgba(90,90,120,.15);color:#9090aa;border:1px solid rgba(90,90,120,.2)">${nombre}</span>`;
@@ -640,7 +640,7 @@ function ensureDB(){
   if(!DB.nextId)DB.nextId=1;
   if(!DB.reuniones)DB.reuniones={};
   if(!DB.disp)DB.disp={};
-  if(!DB.areas||!DB.areas.length)DB.areas=[DEFAULT_AREAS[0],DEFAULT_AREAS[1],DEFAULT_AREAS[2]];
+  if(!DB.areas||!DB.areas.length)DB.areas=[...DEFAULT_AREAS];
 }
 function loadLocal(){try{const s=localStorage.getItem('ig-rot-v3');if(s)DB=JSON.parse(s);}catch(e){}ensureDB();}
 function saveLocal(){try{localStorage.setItem('ig-rot-v3',JSON.stringify(DB));}catch(e){}}
@@ -786,7 +786,7 @@ function saveArea(){
   const icono=document.getElementById('area-icono').value.trim()||'◈';
   if(!nombre)return toast('Ingresá un nombre','err');
   const eid=document.getElementById('area-eid').value;
-  if(!DB.areas||!DB.areas.length)DB.areas=[DEFAULT_AREAS[0],DEFAULT_AREAS[1],DEFAULT_AREAS[2]];
+  if(!DB.areas||!DB.areas.length)DB.areas=[...DEFAULT_AREAS];
   if(eid){
     const a=DB.areas.find(x=>x.id===eid);
     if(a){const old=a.nombre;a.nombre=nombre;a.icono=icono;a.color=_selColor;
@@ -1980,7 +1980,7 @@ function renderDash(){
     :'<p style="color:var(--text3)">Sin asignaciones aún.</p>';
   const areaCnt={};dbAreas().forEach(a=>areaCnt[a.nombre]=0);
   reu.forEach(r=>{const t=DB.tipos.find(x=>x.id===r.tipoId);(t?t.puestos:[]).forEach((p,i)=>{if(r.asig&&r.asig[i]&&p.area)areaCnt[p.area]=(areaCnt[p.area]||0)+1;});});
-  const maxA=Math.max(O[0],O[1],O[2]bject.values(areaCnt),1);
+  const maxA=Math.max(Object.values(areaCnt),1);
   document.getElementById('d-areas').innerHTML=`<div style="display:flex;flex-direction:column;gap:7px">${dbAreas().map(a=>`
     <div style="display:flex;align-items:center;gap:10px">${tag(a.nombre)}
       <div class="prog" style="flex:1"><div class="pf" style="width:${Math.round((areaCnt[a.nombre]||0)/maxA*100)}%"></div></div>
