@@ -615,7 +615,7 @@ const DEFAULT_AREAS=[
   {id:'a8',nombre:'Fotografía',    icono:'📷',color:'red'},
 ];
 
-function dbAreas(){return DB.areas&&DB.areas.length?DB.areas:[...DEFAULT_AREAS];}
+function dbAreas(){return DB.areas&&DB.areas.length?DB.areas:[DEFAULT_AREAS[0],DEFAULT_AREAS[1],DEFAULT_AREAS[2]];}
 function tag(nombre){
   const a=dbAreas().find(x=>x.nombre===nombre);
   if(!a)return `<span class="tag" style="background:rgba(90,90,120,.15);color:#9090aa;border:1px solid rgba(90,90,120,.2)">${nombre}</span>`;
@@ -640,7 +640,7 @@ function ensureDB(){
   if(!DB.nextId)DB.nextId=1;
   if(!DB.reuniones)DB.reuniones={};
   if(!DB.disp)DB.disp={};
-  if(!DB.areas||!DB.areas.length)DB.areas=[...DEFAULT_AREAS];
+  if(!DB.areas||!DB.areas.length)DB.areas=[DEFAULT_AREAS[0],DEFAULT_AREAS[1],DEFAULT_AREAS[2]];
 }
 function loadLocal(){try{const s=localStorage.getItem('ig-rot-v3');if(s)DB=JSON.parse(s);}catch(e){}ensureDB();}
 function saveLocal(){try{localStorage.setItem('ig-rot-v3',JSON.stringify(DB));}catch(e){}}
@@ -786,7 +786,7 @@ function saveArea(){
   const icono=document.getElementById('area-icono').value.trim()||'◈';
   if(!nombre)return toast('Ingresá un nombre','err');
   const eid=document.getElementById('area-eid').value;
-  if(!DB.areas||!DB.areas.length)DB.areas=[...DEFAULT_AREAS];
+  if(!DB.areas||!DB.areas.length)DB.areas=[DEFAULT_AREAS[0],DEFAULT_AREAS[1],DEFAULT_AREAS[2]];
   if(eid){
     const a=DB.areas.find(x=>x.id===eid);
     if(a){const old=a.nombre;a.nombre=nombre;a.icono=icono;a.color=_selColor;
@@ -1679,20 +1679,20 @@ const EXP={
 
 function expPageHeader(doc,titulo,subtitulo,mes,y,m,PW,ML,MR){
   // Banda superior azul
-  doc.setFillColor(...EXP.NAVY);doc.rect(0,0,PW,26,'F');
+  doc.setFillColor(EXP[0],EXP[1],EXP[2].NAVY);doc.rect(0,0,PW,26,'F');
   // Línea dorada decorativa
-  doc.setFillColor(...EXP.GOLD);doc.rect(0,26,PW,1.5,'F');
+  doc.setFillColor(EXP[0],EXP[1],EXP[2].GOLD);doc.rect(0,26,PW,1.5,'F');
   // Nombre iglesia
-  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...EXP.GOLD);
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(EXP[0],EXP[1],EXP[2].GOLD);
   doc.text('CONEXION CON DIOS',ML,9);
   // Título sección
-  doc.setFontSize(13);doc.setTextColor(...EXP.WHITE);
+  doc.setFontSize(13);doc.setTextColor(EXP[0],EXP[1],EXP[2].WHITE);
   doc.text(titulo,ML,18);
   // Info derecha
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(180,195,220);
   doc.text(`${MESES[m-1].toUpperCase()} ${y}`,PW-MR,10,{align:'right'});
   if(subtitulo)doc.text(subtitulo,PW-MR,18,{align:'right'});
-  doc.setTextColor(...EXP.BLACK);
+  doc.setTextColor(EXP[0],EXP[1],EXP[2].BLACK);
   return 34;
 }
 
@@ -1921,14 +1921,14 @@ function exportPDF(){
   const LIGHT_ACCENT=[235,232,255];
 
   const pageHeader=(title,sub)=>{
-    doc.setFillColor(...ACCENT);doc.rect(0,0,PW,22,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...WHITE);
+    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.rect(0,0,PW,22,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
     doc.text(`Técnica — ${MESES[m-1]} ${y}`,ML,10);
     doc.setFontSize(8);doc.setFont('helvetica','normal');
     doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')}`,PW-MR,10,{align:'right'});
     doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text(title,ML,18);
-    if(sub){doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(...GRAY2);doc.text(sub,PW-MR,18,{align:'right'});}
-    doc.setTextColor(...BLACK);
+    if(sub){doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);doc.text(sub,PW-MR,18,{align:'right'});}
+    doc.setTextColor(BLACK[0],BLACK[1],BLACK[2]);
     return 28;
   };
 
@@ -1940,8 +1940,8 @@ function exportPDF(){
   const dW=CW/7;const dH=10;
   // Cabecera días
   DIAS_C.forEach((d,i)=>{
-    doc.setFillColor(...ACCENT);doc.rect(ML+i*dW,y0,dW,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(...WHITE);
+    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.rect(ML+i*dW,y0,dW,7,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
     doc.text(d,ML+i*dW+dW/2,y0+5,{align:'center'});
   });
   y0+=7;
@@ -1951,23 +1951,23 @@ function exportPDF(){
   let col=startDow,row=0;
   // Pre-vacíos
   for(let i=0;i<startDow;i++){
-    doc.setFillColor(...GRAY1);doc.rect(ML+i*dW,y0+row*dH,dW,dH,'F');
+    doc.setFillColor(GRAY1[0],GRAY1[1],GRAY1[2]);doc.rect(ML+i*dW,y0+row*dH,dW,dH,'F');
     doc.setDrawColor(220,220,228);doc.rect(ML+i*dW,y0+row*dH,dW,dH,'S');
   }
   for(let d=1;d<=dM;d++){
     const f=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const reunDia=reu.filter(r=>r.fecha===f);
     const isWeekend=col===0||col===6;
-    doc.setFillColor(...(reunDia.length?LIGHT_ACCENT:isWeekend?[238,238,244]:WHITE));
+    const fc2=reunDia.length?LIGHT_ACCENT:isWeekend?[238,238,244]:WHITE;doc.setFillColor(fc2[0],fc2[1],fc2[2]);
     doc.rect(ML+col*dW,y0+row*dH,dW,dH,'F');
     doc.setDrawColor(210,210,220);doc.rect(ML+col*dW,y0+row*dH,dW,dH,'S');
     // Número día
     doc.setFont('helvetica','bold');doc.setFontSize(7);
-    doc.setTextColor(reunDia.length?...[80,60,200]:...(isWeekend?[160,160,175]:BLACK));
+    const tc=reunDia.length?[80,60,200]:isWeekend?[160,160,175]:BLACK;doc.setTextColor(tc[0],tc[1],tc[2]);
     doc.text(String(d),ML+col*dW+2,y0+row*dH+4);
     // Nombre reunión
     if(reunDia.length){
-      doc.setFont('helvetica','normal');doc.setFontSize(5.5);doc.setTextColor(...ACCENT);
+      doc.setFont('helvetica','normal');doc.setFontSize(5.5);doc.setTextColor(ACCENT[0],ACCENT[1],ACCENT[2]);
       reunDia.forEach((r,ri)=>{
         const t=DB.tipos.find(x=>x.id===r.tipoId);
         const nombre=t?t.nombre.substring(0,10):'-';
@@ -1980,8 +1980,8 @@ function exportPDF(){
   y0+=((row+1)*dH)+8;
 
   // Leyenda
-  doc.setFillColor(...LIGHT_ACCENT);doc.roundedRect(ML,y0,CW,7,1,1,'F');
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...ACCENT);
+  doc.setFillColor(LIGHT_ACCENT[0],LIGHT_ACCENT[1],LIGHT_ACCENT[2]);doc.roundedRect(ML,y0,CW,7,1,1,'F');
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(ACCENT[0],ACCENT[1],ACCENT[2]);
   doc.text('■ Días con reunión programada',ML+4,y0+5);
   y0+=12;
 
@@ -1998,8 +1998,8 @@ function exportPDF(){
     const cardH=10+ps.length*7+4;
     if(y0+cardH>PH-14){doc.addPage();y0=pageHeader('📋 Detalle por Reunión (cont.)');}
     // Header tarjeta
-    doc.setFillColor(...ACCENT);doc.roundedRect(ML,y0,CW,9,1.5,1.5,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...WHITE);
+    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.roundedRect(ML,y0,CW,9,1.5,1.5,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
     const fd=new Date(r.fecha+'T12:00:00');
     doc.text(`${DIAS[fd.getDay()]} ${fd.getDate()} de ${MESES[m-1]}  —  ${t.nombre}`,ML+4,y0+6);
     doc.setFont('helvetica','normal');doc.setFontSize(8);
@@ -2007,15 +2007,15 @@ function exportPDF(){
     y0+=9;
     ps.forEach((p,i)=>{
       const srv2=DB.servidores.find(s=>s.id==asig[i]);
-      doc.setFillColor(...(i%2===0?GRAY1:WHITE));doc.rect(ML,y0,CW,7,'F');
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...GRAY2);
+      const rc=i%2===0?GRAY1:WHITE;doc.setFillColor(rc[0],rc[1],rc[2]);doc.rect(ML,y0,CW,7,'F');
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);
       doc.text(p.nombre,ML+4,y0+5);
-      doc.setFont('helvetica','bold');doc.setTextColor(...(srv2?BLACK:GRAY2));
+      doc.setFont('helvetica','bold');const sc2=srv2?BLACK:GRAY2;doc.setTextColor(sc2[0],sc2[1],sc2[2]);
       doc.text(srv2?srv2.nombre:'— Sin asignar —',ML+CW/2,y0+5);
-      if(p.area){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...GRAY2);doc.text(p.area,PW-MR,y0+5,{align:'right'});}
+      if(p.area){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);doc.text(p.area,PW-MR,y0+5,{align:'right'});}
       y0+=7;
     });
-    doc.setDrawColor(...LIGHT_ACCENT);doc.rect(ML,y0-ps.length*7,CW,ps.length*7,'S');
+    doc.setDrawColor(LIGHT_ACCENT[0],LIGHT_ACCENT[1],LIGHT_ACCENT[2]);doc.rect(ML,y0-ps.length*7,CW,ps.length*7,'S');
     y0+=5;
   });
 
@@ -2042,17 +2042,17 @@ function exportPDF(){
       else{doc.addPage();y0=pageHeader('👤 Servicios por Persona (cont.)');col2=0;}
     }
     const cx=colX[col2];
-    doc.setFillColor(...ACCENT);doc.roundedRect(cx,y0,colW,7,1,1,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...WHITE);
+    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.roundedRect(cx,y0,colW,7,1,1,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
     doc.text(sv.nombre,cx+3,y0+5);
     doc.setFont('helvetica','normal');doc.setFontSize(7);
     doc.text(`${servicios.length} servicio${servicios.length!==1?'s':''}`,cx+colW-3,y0+5,{align:'right'});
     y0+=7;
     servicios.forEach((s,i)=>{
-      doc.setFillColor(...(i%2===0?GRAY1:WHITE));doc.rect(cx,y0,colW,6,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(...BLACK);
+      const rc2=i%2===0?GRAY1:WHITE;doc.setFillColor(rc2[0],rc2[1],rc2[2]);doc.rect(cx,y0,colW,6,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(BLACK[0],BLACK[1],BLACK[2]);
       doc.text(s.fecha,cx+2,y0+4.5);
-      doc.setFont('helvetica','normal');doc.setTextColor(...GRAY2);
+      doc.setFont('helvetica','normal');doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);
       doc.text(`${s.tipo} — ${s.puesto}`,cx+18,y0+4.5);
       y0+=6;
     });
@@ -2113,7 +2113,7 @@ function renderDash(){
     :'<p style="color:var(--text3)">Sin asignaciones aún.</p>';
   const areaCnt={};dbAreas().forEach(a=>areaCnt[a.nombre]=0);
   reu.forEach(r=>{const t=DB.tipos.find(x=>x.id===r.tipoId);(t?t.puestos:[]).forEach((p,i)=>{if(r.asig&&r.asig[i]&&p.area)areaCnt[p.area]=(areaCnt[p.area]||0)+1;});});
-  const maxA=Math.max(...Object.values(areaCnt),1);
+  const maxA=Math.max(O[0],O[1],O[2]bject.values(areaCnt),1);
   document.getElementById('d-areas').innerHTML=`<div style="display:flex;flex-direction:column;gap:7px">${dbAreas().map(a=>`
     <div style="display:flex;align-items:center;gap:10px">${tag(a.nombre)}
       <div class="prog" style="flex:1"><div class="pf" style="width:${Math.round((areaCnt[a.nombre]||0)/maxA*100)}%"></div></div>
