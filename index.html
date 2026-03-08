@@ -78,6 +78,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .bs{background:var(--green);color:#062a1e;} .bs:hover{filter:brightness(1.1);}
 .bd{background:rgba(255,107,107,.12);color:var(--red);border:1px solid rgba(255,107,107,.25);} .bd:hover{background:rgba(255,107,107,.22);}
 .bw{background:rgba(255,179,71,.12);color:var(--yellow);border:1px solid rgba(255,179,71,.25);}
+.by{background:rgba(251,191,36,.15);color:#b8860b;border:1px solid rgba(251,191,36,.35);} .by:hover{background:rgba(251,191,36,.28);}
 .btn-sm{padding:4px 9px;font-size:.74rem;} .btn-xs{padding:2px 7px;font-size:.7rem;}
 .fg{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
 .fg.half{flex:1;min-width:120px;}
@@ -315,27 +316,88 @@ tr:hover td{background:rgba(124,106,255,.03);}
 <!-- EXPORTAR -->
 <div class="pg" id="pg-export">
   <div class="ph"><div class="ph-l"><h2>Exportar</h2><p>Cronograma y backup</p></div></div>
-  <div class="grid2">
-    <div class="card">
-      <div class="ct">📄 Cronograma mensual</div>
-      <div class="fg"><span class="lbl">Mes a exportar</span><input type="month" id="exp-mes"></div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
-        <button class="btn bp" onclick="exportPDF()">↓ Exportar PDF</button>
-        <button class="btn bg" onclick="exportExcel()">↓ Exportar Excel (.xlsx)</button>
+
+  <!-- Selector de mes global -->
+  <div class="card" style="margin-bottom:14px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div class="fg" style="margin:0;flex:0 0 auto">
+        <span class="lbl">Mes a exportar</span>
+        <input type="month" id="exp-mes" onchange="actualizarExpMes()">
       </div>
+      <div id="exp-resumen" style="font-size:.8rem;color:var(--text3);margin-top:14px"></div>
     </div>
-    <div class="card">
-      <div class="ct">💾 Backup de datos</div>
-      <p style="font-size:.8rem;color:var(--text2);margin-bottom:14px;line-height:1.5">Descargá todos los datos (servidores, tipos, reuniones, disponibilidad, áreas) en JSON.</p>
-      <button class="btn bs" onclick="exportBackup()" style="margin-bottom:10px">↓ Descargar backup.json</button>
-      <div style="height:1px;background:var(--border);margin:14px 0"></div>
-      <div class="ct">🔁 Restaurar backup</div>
-      <p style="font-size:.8rem;color:var(--text2);margin-bottom:10px"><strong style="color:var(--red)">Reemplaza todos los datos actuales.</strong></p>
-      <input type="file" id="backup-file" accept=".json" style="display:none" onchange="importBackup(this)">
-      <button class="btn bd" onclick="document.getElementById('backup-file').click()">↑ Importar backup.json</button>
+  </div>
+
+  <!-- Opciones de exportación -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:16px">
+
+    <!-- PDF Completo -->
+    <div class="card" style="border:1px solid rgba(124,106,255,.3);display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:1.8rem">📄</div>
+      <div style="font-weight:700;font-size:.95rem">PDF Completo</div>
+      <div style="font-size:.78rem;color:var(--text3);line-height:1.5;flex:1">Calendario visual + detalle por reunión + servicios por persona. Ideal para imprimir o archivar.</div>
+      <button class="btn bp" onclick="exportPDF()" style="width:100%">↓ Descargar PDF</button>
+      <button class="btn bg" onclick="previewPDF()" style="width:100%">👁 Vista previa</button>
+    </div>
+
+    <!-- Imagen del mes -->
+    <div class="card" style="border:1px solid rgba(45,212,160,.3);display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:1.8rem">🖼️</div>
+      <div style="font-weight:700;font-size:.95rem">Imagen del mes</div>
+      <div style="font-size:.78rem;color:var(--text3);line-height:1.5;flex:1">Calendario visual en formato PNG. Perfecto para compartir por WhatsApp al grupo del equipo.</div>
+      <button class="btn bs" onclick="exportImagen()" style="width:100%">↓ Descargar PNG</button>
+    </div>
+
+    <!-- Tarjetas individuales -->
+    <div class="card" style="border:1px solid rgba(251,191,36,.3);display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:1.8rem">👤</div>
+      <div style="font-weight:700;font-size:.95rem">Tarjetas individuales</div>
+      <div style="font-size:.78rem;color:var(--text3);line-height:1.5;flex:1">Una imagen por servidor con sus servicios del mes. Para enviarle a cada uno por WhatsApp.</div>
+      <button class="btn by" onclick="exportTarjetas()" style="width:100%">↓ Generar tarjetas</button>
+    </div>
+
+    <!-- Excel -->
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:1.8rem">📊</div>
+      <div style="font-weight:700;font-size:.95rem">Excel</div>
+      <div style="font-size:.78rem;color:var(--text3);line-height:1.5;flex:1">Tabla completa en formato .xlsx. Útil para filtrar, ordenar o compartir con otros coordinadores.</div>
+      <button class="btn bg" onclick="exportExcel()" style="width:100%">↓ Descargar Excel</button>
+    </div>
+
+  </div>
+
+  <!-- Backup -->
+  <div class="card">
+    <div class="ct">💾 Backup de datos</div>
+    <p style="font-size:.8rem;color:var(--text2);margin-bottom:14px;line-height:1.5">Descargá todos los datos (servidores, tipos, reuniones, disponibilidad, áreas) en JSON.</p>
+    <button class="btn bs" onclick="exportBackup()" style="margin-bottom:10px">↓ Descargar backup.json</button>
+    <div style="height:1px;background:var(--border);margin:14px 0"></div>
+    <div class="ct">🔁 Restaurar backup</div>
+    <p style="font-size:.8rem;color:var(--text2);margin-bottom:10px"><strong style="color:var(--red)">Reemplaza todos los datos actuales.</strong></p>
+    <input type="file" id="backup-file" accept=".json" style="display:none" onchange="importBackup(this)">
+    <button class="btn bd" onclick="document.getElementById('backup-file').click()">↑ Importar backup.json</button>
+  </div>
+</div>
+
+<!-- MODAL VISTA PREVIA PDF -->
+<div class="modal" id="m-preview" style="display:none">
+  <div class="mbox" style="max-width:700px;width:95vw;max-height:90vh;display:flex;flex-direction:column">
+    <div class="mh"><h3>👁 Vista previa</h3><button class="mx" onclick="closeM('m-preview')">×</button></div>
+    <div id="preview-body" style="flex:1;overflow-y:auto;padding:16px;background:#f5f5f8;border-radius:0 0 12px 12px"></div>
+  </div>
+</div>
+
+<!-- MODAL TARJETAS -->
+<div class="modal" id="m-tarjetas" style="display:none">
+  <div class="mbox" style="max-width:500px;width:95vw;max-height:90vh;display:flex;flex-direction:column">
+    <div class="mh"><h3>👤 Tarjetas individuales</h3><button class="mx" onclick="closeM('m-tarjetas')">×</button></div>
+    <div style="padding:14px;overflow-y:auto">
+      <p style="font-size:.82rem;color:var(--text2);margin-bottom:12px">Hacé click en cada servidor para descargar su tarjeta individual.</p>
+      <div id="tarjetas-lista"></div>
     </div>
   </div>
 </div>
+
 
 <!-- CONFIG -->
 <div class="pg" id="pg-cfg">
@@ -482,6 +544,18 @@ tr:hover td{background:rgba(124,106,255,.03);}
     <div class="fg"><span class="lbl">Nueva fecha</span><input type="date" id="dup-fecha"></div>
     <button class="btn bp" onclick="confirmarDup()">Duplicar</button>
     <input type="hidden" id="dup-rid">
+  </div>
+</div>
+
+<!-- MODAL PREVIEW PDF -->
+<div class="mbg" id="m-prev">
+  <div class="modal" style="max-width:640px;max-height:85vh;overflow-y:auto">
+    <div class="mh"><h3>Vista previa</h3><button class="mx" onclick="closeM('m-prev')">×</button></div>
+    <div id="prev-body" style="padding:4px 0"></div>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn bp" onclick="closeM('m-prev');exportPDF()">↓ Descargar PDF</button>
+      <button class="btn bg" onclick="closeM('m-prev')">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -1589,12 +1663,249 @@ function getExpRows(mes){
   const reu=(DB.reuniones[mes]||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));const rows=[];
   reu.forEach(r=>{
     const t=DB.tipos.find(x=>x.id===r.tipoId);const ps=t?t.puestos:[];
-    if(!ps.length){rows.push([fmtFecha(r.fecha),t?t.nombre:'?',t?t.hora:'','—','—','Sin puestos']);return;}
+    if(!ps.length){rows.push([fmtFecha(r.fecha),t?t.nombre:'?',t?t.hora:'','—','Sin puestos']);return;}
     ps.forEach((p,i)=>{const sid=r.asig&&r.asig[i];const srv=sid?DB.servidores.find(s=>s.id==sid):null;
-      rows.push([fmtFecha(r.fecha),t?t.nombre:'?',t?t.hora:'',p.nombre,p.area||'',srv?srv.nombre:'⚠ Sin asignar']);});
+      rows.push([fmtFecha(r.fecha),t?t.nombre:'?',t?t.hora:'',p.area||'',srv?srv.nombre:'⚠ Sin asignar']);});
   });return rows;
 }
-function exportPDF(){
+
+// Colores base para exports
+const EXP={
+  NAVY:[15,40,80],BLUE:[30,60,130],LIGHT:[235,241,255],
+  WHITE:[255,255,255],GRAY1:[248,249,252],GRAY2:[100,115,140],
+  BLACK:[20,30,50],GREEN:[34,197,94],RED:[239,68,68],
+  GOLD:[251,191,36]
+};
+
+function expPageHeader(doc,titulo,subtitulo,mes,y,m,PW,ML,MR){
+  // Banda superior azul
+  doc.setFillColor(...EXP.NAVY);doc.rect(0,0,PW,26,'F');
+  // Línea dorada decorativa
+  doc.setFillColor(...EXP.GOLD);doc.rect(0,26,PW,1.5,'F');
+  // Nombre iglesia
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...EXP.GOLD);
+  doc.text('CONEXION CON DIOS',ML,9);
+  // Título sección
+  doc.setFontSize(13);doc.setTextColor(...EXP.WHITE);
+  doc.text(titulo,ML,18);
+  // Info derecha
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(180,195,220);
+  doc.text(`${MESES[m-1].toUpperCase()} ${y}`,PW-MR,10,{align:'right'});
+  if(subtitulo)doc.text(subtitulo,PW-MR,18,{align:'right'});
+  doc.setTextColor(...EXP.BLACK);
+  return 34;
+}
+
+
+
+
+function actualizarExpMes(){
+  const mes=document.getElementById('exp-mes').value;
+  if(!mes)return;
+  const[y,m]=mes.split('-').map(Number);
+  const mk=mes;
+  const reu=DB.reuniones[mk]||[];
+  const totalAsig=reu.reduce((a,r)=>a+Object.keys(r.asig||{}).length,0);
+  document.getElementById('exp-resumen').textContent=
+    reu.length?`${reu.length} reuniones · ${totalAsig} asignaciones`:'Sin reuniones este mes';
+}
+
+function previewPDF(){
+  const mes=document.getElementById('exp-mes').value;if(!mes)return toast('Seleccioná un mes','err');
+  const[y,m]=mes.split('-').map(Number);const mk=mes;
+  const reu=(DB.reuniones[mk]||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!reu.length)return toast('Sin reuniones este mes','err');
+  const body=document.getElementById('preview-body');
+  const ACCENT='#7c6aff';const LIGHT='#ede9ff';
+  let h=`<div style="font-family:system-ui;max-width:640px;margin:0 auto">`;
+  // Header
+  h+=`<div style="background:${ACCENT};border-radius:12px;padding:18px 20px;margin-bottom:16px;color:#fff">
+    <div style="font-size:.75rem;opacity:.7;margin-bottom:2px">CONEXION CON DIOS · Área Técnica</div>
+    <div style="font-size:1.3rem;font-weight:800">Rotaciones — ${MESES[m-1]} ${y}</div>
+    <div style="font-size:.75rem;opacity:.7;margin-top:4px">${reu.length} reuniones programadas</div>
+  </div>`;
+  // Calendario
+  h+=`<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+    <div style="font-weight:700;font-size:.85rem;color:${ACCENT};margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">📅 Calendario</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+      ${DIAS_C.map(d=>`<div style="text-align:center;font-size:.65rem;font-weight:700;color:#999;padding:4px">${d}</div>`).join('')}`;
+  const dM=new Date(y,m,0).getDate();const startDow=new Date(y,m-1,1).getDay();
+  for(let i=0;i<startDow;i++)h+=`<div></div>`;
+  for(let d=1;d<=dM;d++){
+    const f=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const reunDia=reu.filter(r=>r.fecha===f);
+    const bg=reunDia.length?ACCENT:'#f5f5f8';
+    const col=reunDia.length?'#fff':'#333';
+    const t=reunDia.length?DB.tipos.find(x=>x.id===reunDia[0].tipoId):null;
+    h+=`<div style="background:${bg};border-radius:6px;padding:5px 3px;text-align:center;min-height:32px">
+      <div style="font-size:.72rem;font-weight:700;color:${col}">${d}</div>
+      ${t?`<div style="font-size:.5rem;color:${col};opacity:.85;line-height:1.2">${t.nombre.substring(0,8)}</div>`:''}
+    </div>`;
+  }
+  h+=`</div></div>`;
+  // Reuniones
+  h+=`<div style="font-weight:700;font-size:.85rem;color:${ACCENT};margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">📋 Detalle por reunión</div>`;
+  reu.forEach(r=>{
+    const t=DB.tipos.find(x=>x.id===r.tipoId);if(!t)return;
+    const fd=new Date(r.fecha+'T12:00:00');
+    h+=`<div style="background:#fff;border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="background:${ACCENT};padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#fff;font-weight:700;font-size:.88rem">${DIAS[fd.getDay()]} ${fd.getDate()} de ${MESES[m-1]}</span>
+        <span style="color:rgba(255,255,255,.8);font-size:.78rem">${t.nombre} · ${t.hora}</span>
+      </div>`;
+    t.puestos.forEach((p,i)=>{
+      const srv=DB.servidores.find(s=>s.id==(r.asig||{})[i]);
+      h+=`<div style="display:flex;justify-content:space-between;padding:7px 14px;border-bottom:1px solid #f0f0f4;font-size:.8rem">
+        <span style="color:#888">${p.nombre}</span>
+        <span style="font-weight:600;color:${srv?'#333':'#ccc'}">${srv?srv.nombre:'Sin asignar'}</span>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  body.innerHTML=h;
+  openM('m-preview');
+}
+
+function exportImagen(){
+  const mes=document.getElementById('exp-mes').value;if(!mes)return toast('Seleccioná un mes','err');
+  const[y,m]=mes.split('-').map(Number);const mk=mes;
+  const reu=(DB.reuniones[mk]||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!reu.length)return toast('Sin reuniones este mes','err');
+  const canvas=document.createElement('canvas');
+  const W=800,CELL=90,HEAD=120,DAYH=80;
+  const rows=Math.ceil((new Date(y,m-1,1).getDay()+new Date(y,m,0).getDate())/7);
+  canvas.width=W;canvas.height=HEAD+rows*DAYH+40;
+  const ctx=canvas.getContext('2d');
+  const ACCENT='#7c6aff',LIGHT='#ede9ff',GRAY='#f5f5f8';
+  // Fondo
+  ctx.fillStyle='#0f0f13';ctx.fillRect(0,0,W,canvas.height);
+  // Header
+  ctx.fillStyle=ACCENT;ctx.fillRect(0,0,W,HEAD);
+  ctx.fillStyle='rgba(255,255,255,.15)';ctx.fillRect(0,0,W,2);
+  ctx.fillStyle='#fff';ctx.font='bold 13px system-ui';ctx.fillText('CONEXION CON DIOS · Área Técnica',24,32);
+  ctx.font='bold 28px system-ui';ctx.fillText(`Rotaciones — ${MESES[m-1]} ${y}`,24,65);
+  ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='12px system-ui';
+  ctx.fillText(`${reu.length} reuniones programadas`,24,90);
+  // Días cabecera
+  DIAS_C.forEach((d,i)=>{
+    ctx.fillStyle='#18181f';ctx.fillRect(i*CELL,HEAD,CELL,36);
+    ctx.fillStyle='#888';ctx.font='bold 11px system-ui';ctx.textAlign='center';
+    ctx.fillText(d,i*CELL+CELL/2,HEAD+24);
+  });
+  // Celdas
+  const dM=new Date(y,m,0).getDate();const startDow=new Date(y,m-1,1).getDay();
+  let col=startDow,row=0;
+  for(let i=0;i<startDow;i++){ctx.fillStyle='#111116';ctx.fillRect(i*CELL,HEAD+36+row*DAYH,CELL,DAYH);}
+  for(let d=1;d<=dM;d++){
+    const f=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const reunDia=reu.filter(r=>r.fecha===f);
+    ctx.fillStyle=reunDia.length?'#1a1730':'#18181f';
+    ctx.fillRect(col*CELL,HEAD+36+row*DAYH,CELL,DAYH);
+    if(reunDia.length){ctx.fillStyle=ACCENT;ctx.fillRect(col*CELL,HEAD+36+row*DAYH,CELL,3);}
+    ctx.fillStyle=reunDia.length?ACCENT:'#555';ctx.font=`bold 16px system-ui`;ctx.textAlign='center';
+    ctx.fillText(d,col*CELL+CELL/2,HEAD+36+row*DAYH+24);
+    if(reunDia.length){
+      const t=DB.tipos.find(x=>x.id===reunDia[0].tipoId);
+      if(t){ctx.fillStyle='rgba(124,106,255,.9)';ctx.font='9px system-ui';ctx.fillText(t.nombre.substring(0,10),col*CELL+CELL/2,HEAD+36+row*DAYH+40);}
+    }
+    // Líneas borde
+    ctx.strokeStyle='#222';ctx.lineWidth=1;ctx.strokeRect(col*CELL,HEAD+36+row*DAYH,CELL,DAYH);
+    col++;if(col>6){col=0;row++;}
+  }
+  // Footer
+  ctx.fillStyle='#333';ctx.fillRect(0,canvas.height-30,W,30);
+  ctx.fillStyle='#666';ctx.font='11px system-ui';ctx.textAlign='left';
+  ctx.fillText(`Generado ${new Date().toLocaleDateString('es-AR')}`,16,canvas.height-10);
+  const a=document.createElement('a');a.download=`rotaciones-${mes}.png`;
+  a.href=canvas.toDataURL('image/png');a.click();
+  toast('Imagen descargada ✓');
+}
+
+function exportTarjetas(){
+  const mes=document.getElementById('exp-mes').value;if(!mes)return toast('Seleccioná un mes','err');
+  const[y,m]=mes.split('-').map(Number);const mk=mes;
+  const reu=(DB.reuniones[mk]||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!reu.length)return toast('Sin reuniones este mes','err');
+  // Armar mapa persona → servicios
+  const bySrv={};
+  reu.forEach(r=>{
+    const t=DB.tipos.find(x=>x.id===r.tipoId);const ps=t?t.puestos:[];
+    Object.entries(r.asig||{}).forEach(([i,sid])=>{
+      const srv=DB.servidores.find(s=>s.id==sid);if(!srv)return;
+      if(!bySrv[sid])bySrv[sid]={srv,servicios:[]};
+      const fd=new Date(r.fecha+'T12:00:00');
+      bySrv[sid].servicios.push({fecha:`${DIAS[fd.getDay()].slice(0,3)} ${fd.getDate()}`,tipo:t?t.nombre:'',puesto:ps[parseInt(i)]?ps[parseInt(i)].nombre:''});
+    });
+  });
+  const lista=Object.values(bySrv).sort((a,b)=>a.srv.nombre.localeCompare(b.srv.nombre));
+  if(!lista.length)return toast('Sin asignaciones este mes','err');
+  const ACCENT='#7c6aff';
+  document.getElementById('tarjetas-lista').innerHTML=lista.map(({srv,servicios})=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--surf2);border:1px solid var(--border);margin-bottom:6px">
+      <div>
+        <div style="font-weight:700;font-size:.85rem">${srv.nombre}</div>
+        <div style="font-size:.72rem;color:var(--text3)">${servicios.length} servicio${servicios.length!==1?'s':''} — ${servicios.map(s=>s.fecha).join(', ')}</div>
+      </div>
+      <button class="btn bp btn-xs" onclick="descargarTarjeta(${srv.id},'${mes}')">↓ PNG</button>
+    </div>`).join('');
+  openM('m-tarjetas');
+}
+
+function descargarTarjeta(sid,mes){
+  const[y,m]=mes.split('-').map(Number);const mk=mes;
+  const reu=(DB.reuniones[mk]||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const srv=DB.servidores.find(s=>s.id==sid);if(!srv)return;
+  const servicios=[];
+  reu.forEach(r=>{
+    const t=DB.tipos.find(x=>x.id===r.tipoId);const ps=t?t.puestos:[];
+    Object.entries(r.asig||{}).forEach(([i,s2])=>{
+      if(s2==sid){const fd=new Date(r.fecha+'T12:00:00');
+        servicios.push({fecha:`${DIAS[fd.getDay()]} ${fd.getDate()} de ${MESES[m-1]}`,tipo:t?t.nombre:'',puesto:ps[parseInt(i)]?ps[parseInt(i)].nombre:''});}
+    });
+  });
+  const canvas=document.createElement('canvas');
+  const W=600,LH=52,H=160+servicios.length*LH+60;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  const ACCENT='#7c6aff';
+  // Fondo
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#1a1730');grad.addColorStop(1,'#0f0f13');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+  // Borde izq
+  ctx.fillStyle=ACCENT;ctx.fillRect(0,0,4,H);
+  // Header
+  ctx.fillStyle='rgba(124,106,255,.15)';ctx.fillRect(0,0,W,110);
+  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='11px system-ui';ctx.textAlign='left';
+  ctx.fillText('CONEXION CON DIOS · Área Técnica',20,28);
+  ctx.fillStyle='#fff';ctx.font='bold 26px system-ui';
+  ctx.fillText(srv.nombre,20,62);
+  ctx.fillStyle='rgba(255,255,255,.6)';ctx.font='13px system-ui';
+  ctx.fillText(`${MESES[m-1]} ${y} · ${servicios.length} servicio${servicios.length!==1?'s':''}`,20,86);
+  // Línea
+  ctx.fillStyle=ACCENT;ctx.fillRect(20,100,W-40,2);
+  // Servicios
+  servicios.forEach((s,i)=>{
+    const ry=120+i*LH;
+    if(i%2===0){ctx.fillStyle='rgba(255,255,255,.03)';ctx.fillRect(0,ry,W,LH);}
+    ctx.fillStyle=ACCENT;ctx.font='bold 13px system-ui';ctx.textAlign='left';
+    ctx.fillText(s.fecha,20,ry+20);
+    ctx.fillStyle='rgba(255,255,255,.9)';ctx.font='bold 15px system-ui';
+    ctx.fillText(s.puesto,20,ry+38);
+    ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='12px system-ui';ctx.textAlign='right';
+    ctx.fillText(s.tipo,W-20,ry+38);
+  });
+  // Footer
+  ctx.fillStyle='rgba(124,106,255,.3)';ctx.fillRect(0,H-36,W,36);
+  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='10px system-ui';ctx.textAlign='center';
+  ctx.fillText(`Generado ${new Date().toLocaleDateString('es-AR')}`,W/2,H-14);
+  const a=document.createElement('a');a.download=`tarjeta-${srv.nombre.replace(/\s+/g,'-')}-${mes}.png`;
+  a.href=canvas.toDataURL('image/png');a.click();
+  toast(`Tarjeta de ${srv.nombre} descargada ✓`);
+}
+
+
   const mes=document.getElementById('exp-mes').value;if(!mes)return toast('Seleccioná un mes','err');
   if(typeof window.jspdf==='undefined')return toast('Librería PDF no cargó','err');
   const{jsPDF}=window.jspdf;
@@ -1691,88 +2002,13 @@ function exportPDF(){
     const fd=new Date(r.fecha+'T12:00:00');
     doc.text(`${DIAS[fd.getDay()]} ${fd.getDate()} de ${MESES[m-1]}  —  ${t.nombre}`,ML+4,y0+6);
     doc.setFont('helvetica','normal');doc.setFontSize(8);
-    doc.text(`⏰ ${t.hora}`,PW-MR,y0+6,{align:'right'});
-    y0+=9;
-    // Puestos
-    ps.forEach((p,i)=>{
-      const srv=DB.servidores.find(s=>s.id==asig[i]);
-      const even=i%2===0;
-      doc.setFillColor(...(even?GRAY1:WHITE));doc.rect(ML,y0,CW,7,'F');
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...GRAY2);
-      doc.text(p.nombre,ML+4,y0+5);
-      doc.setFont('helvetica','bold');doc.setTextColor(...(srv?BLACK:GRAY2));
-      doc.text(srv?srv.nombre:'— Sin asignar —',ML+CW/2,y0+5);
-      if(p.area){
-        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...GRAY2);
-        doc.text(p.area,PW-MR,y0+5,{align:'right'});
-      }
-      y0+=7;
-    });
-    doc.setDrawColor(...LIGHT_ACCENT);doc.rect(ML,y0-ps.length*7,CW,ps.length*7,'S');
-    y0+=5;
-  });
-
-  // ══════════════════════════════
-  // SECCIÓN 3: POR PERSONA
-  // ══════════════════════════════
-  doc.addPage();
-  y0=pageHeader('👤 Servicios por Persona',`${DB.servidores.filter(s=>s.activo!==false).length} servidores`);
-
-  // Armar mapa persona → servicios
-  const bySrv={};
-  reu.forEach(r=>{
-    const t=DB.tipos.find(x=>x.id===r.tipoId);const ps=t?t.puestos:[];
-    Object.entries(r.asig||{}).forEach(([i,sid])=>{
-      const srv=DB.servidores.find(s=>s.id==sid);if(!srv)return;
-      if(!bySrv[sid])bySrv[sid]={srv,servicios:[]};
-      const fd=new Date(r.fecha+'T12:00:00');
-      bySrv[sid].servicios.push({
-        fecha:`${DIAS[fd.getDay()].slice(0,3)} ${fd.getDate()}`,
-        tipo:t?t.nombre:'',
-        puesto:ps[parseInt(i)]?ps[parseInt(i)].nombre:''
-      });
-    });
-  });
-
-  const srvList=Object.values(bySrv).sort((a,b)=>a.srv.nombre.localeCompare(b.srv.nombre));
-  const colW=CW/2-3;
-  let col2=0,colX=[ML,ML+colW+6];
-
-  srvList.forEach(({srv,servicios})=>{
-    const cardH=8+servicios.length*6+3;
-    if(y0+cardH>PH-14){
-      if(col2===0){col2=1;}
-      else{doc.addPage();y0=pageHeader('👤 Servicios por Persona (cont.)');col2=0;}
-    }
-    const cx=colX[col2];
-    doc.setFillColor(...ACCENT);doc.roundedRect(cx,y0,colW,7,1,1,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...WHITE);
-    doc.text(srv.nombre,cx+3,y0+5);
-    doc.setFont('helvetica','normal');doc.setFontSize(7);
-    doc.text(`${servicios.length} servicio${servicios.length!==1?'s':''}`,cx+colW-3,y0+5,{align:'right'});
-    y0+=7;
-    servicios.forEach((s,i)=>{
-      doc.setFillColor(...(i%2===0?GRAY1:WHITE));doc.rect(cx,y0,colW,6,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(...BLACK);
-      doc.text(s.fecha,cx+2,y0+4.5);
-      doc.setFont('helvetica','normal');doc.setTextColor(...GRAY2);
-      doc.text(`${s.tipo} — ${s.puesto}`,cx+18,y0+4.5);
-      y0+=6;
-    });
-    y0+=4;
-    if(col2===0){col2=1;y0-=(cardH);}
-    else{col2=0;}
-  });
-
-  doc.save(`rotaciones-${mes}.pdf`);
-  toast('PDF descargado ✓');
-}
+    doc.text(`⏰ ${t.
 function exportExcel(){
   const mes=document.getElementById('exp-mes').value;if(!mes)return toast('Seleccioná un mes','err');
   if(typeof XLSX==='undefined')return toast('Librería Excel no cargó','err');
   const[y,m]=mes.split('-').map(Number);
-  const ws=XLSX.utils.aoa_to_sheet([['Fecha','Reunión','Hora','Puesto','Área','Servidor'],...getExpRows(mes)]);
-  ws['!cols']=[{wch:22},{wch:20},{wch:10},{wch:22},{wch:16},{wch:22}];
+  const ws=XLSX.utils.aoa_to_sheet([['Fecha','Reunión','Hora','Área','Servidor'],...getExpRows(mes)]);
+  ws['!cols']=[{wch:22},{wch:20},{wch:10},{wch:16},{wch:22}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,`${MESES[m-1]} ${y}`);
   XLSX.writeFile(wb,`rotaciones-${mes}.xlsx`);toast('Excel descargado ✓');
 }
