@@ -1911,158 +1911,25 @@ function exportPDF(){
   if(typeof window.jspdf==='undefined')return toast('Librería PDF no cargó','err');
   const{jsPDF}=window.jspdf;
   const[y,m]=mes.split('-').map(Number);
-  const mk=mes;
-  const reu=(DB.reuniones[mk]||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  if(!reu.length)return toast('Sin reuniones este mes','err');
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const PW=210,PH=297,ML=14,MR=14,MT=14;
-  const CW=PW-ML-MR;
-  const GRAY1=[245,245,248],GRAY2=[120,120,135],ACCENT=[100,85,220],WHITE=[255,255,255],BLACK=[30,30,40];
-  const LIGHT_ACCENT=[235,232,255];
-
-  const pageHeader=(title,sub)=>{
-    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.rect(0,0,PW,22,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
-    doc.text(`Técnica — ${MESES[m-1]} ${y}`,ML,10);
-    doc.setFontSize(8);doc.setFont('helvetica','normal');
-    doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')}`,PW-MR,10,{align:'right'});
-    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text(title,ML,18);
-    if(sub){doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);doc.text(sub,PW-MR,18,{align:'right'});}
-    doc.setTextColor(BLACK[0],BLACK[1],BLACK[2]);
-    return 28;
-  };
-
-  // ══════════════════════════════
-  // SECCIÓN 1: CALENDARIO VISUAL
-  // ══════════════════════════════
-  let y0=pageHeader('📅 Calendario del Mes',`${reu.length} reuniones`);
-
-  const dW=CW/7;const dH=10;
-  // Cabecera días
-  DIAS_C.forEach((d,i)=>{
-    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.rect(ML+i*dW,y0,dW,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
-    doc.text(d,ML+i*dW+dW/2,y0+5,{align:'center'});
+  const doc=new jsPDF({orientation:'landscape'});
+  doc.setFont('helvetica','bold');doc.setFontSize(14);
+  doc.setTextColor(30,30,40);
+  doc.text('Rotaciones Tecnica — '+MESES[m-1]+' '+y,14,16);
+  doc.setFontSize(9);doc.setTextColor(120,120,135);
+  doc.text('Generado: '+new Date().toLocaleDateString('es-AR'),14,22);
+  doc.autoTable({
+    startY:27,
+    head:[['Fecha','Reunion','Hora','Puesto','Area','Servidor']],
+    body:getExpRows(mes),
+    styles:{fontSize:8,cellPadding:3},
+    headStyles:{fillColor:[100,85,220],textColor:[255,255,255],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,245,250]},
+    columnStyles:{0:{cellWidth:35},1:{cellWidth:32},2:{cellWidth:18},3:{cellWidth:32},4:{cellWidth:25},5:{cellWidth:35}}
   });
-  y0+=7;
-
-  const dM=new Date(y,m,0).getDate();
-  const startDow=new Date(y,m-1,1).getDay();
-  let col=startDow,row=0;
-  // Pre-vacíos
-  for(let i=0;i<startDow;i++){
-    doc.setFillColor(GRAY1[0],GRAY1[1],GRAY1[2]);doc.rect(ML+i*dW,y0+row*dH,dW,dH,'F');
-    doc.setDrawColor(220,220,228);doc.rect(ML+i*dW,y0+row*dH,dW,dH,'S');
-  }
-  for(let d=1;d<=dM;d++){
-    const f=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const reunDia=reu.filter(r=>r.fecha===f);
-    const isWeekend=col===0||col===6;
-    const fc2=reunDia.length?LIGHT_ACCENT:isWeekend?[238,238,244]:WHITE;doc.setFillColor(fc2[0],fc2[1],fc2[2]);
-    doc.rect(ML+col*dW,y0+row*dH,dW,dH,'F');
-    doc.setDrawColor(210,210,220);doc.rect(ML+col*dW,y0+row*dH,dW,dH,'S');
-    // Número día
-    doc.setFont('helvetica','bold');doc.setFontSize(7);
-    const tc=reunDia.length?[80,60,200]:isWeekend?[160,160,175]:BLACK;doc.setTextColor(tc[0],tc[1],tc[2]);
-    doc.text(String(d),ML+col*dW+2,y0+row*dH+4);
-    // Nombre reunión
-    if(reunDia.length){
-      doc.setFont('helvetica','normal');doc.setFontSize(5.5);doc.setTextColor(ACCENT[0],ACCENT[1],ACCENT[2]);
-      reunDia.forEach((r,ri)=>{
-        const t=DB.tipos.find(x=>x.id===r.tipoId);
-        const nombre=t?t.nombre.substring(0,10):'-';
-        doc.text(nombre,ML+col*dW+dW/2,y0+row*dH+5.5+(ri*3),{align:'center'});
-      });
-    }
-    col++;
-    if(col>6){col=0;row++;}
-  }
-  y0+=((row+1)*dH)+8;
-
-  // Leyenda
-  doc.setFillColor(LIGHT_ACCENT[0],LIGHT_ACCENT[1],LIGHT_ACCENT[2]);doc.roundedRect(ML,y0,CW,7,1,1,'F');
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(ACCENT[0],ACCENT[1],ACCENT[2]);
-  doc.text('■ Días con reunión programada',ML+4,y0+5);
-  y0+=12;
-
-  // ══════════════════════════════
-  // SECCIÓN 2: TARJETAS POR REUNIÓN
-  // ══════════════════════════════
-  doc.addPage();
-  y0=pageHeader('📋 Detalle por Reunión',`${reu.length} reuniones programadas`);
-
-  reu.forEach(r=>{
-    const t=DB.tipos.find(x=>x.id===r.tipoId);if(!t)return;
-    const ps=t.puestos;
-    const asig=r.asig||{};
-    const cardH=10+ps.length*7+4;
-    if(y0+cardH>PH-14){doc.addPage();y0=pageHeader('📋 Detalle por Reunión (cont.)');}
-    // Header tarjeta
-    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.roundedRect(ML,y0,CW,9,1.5,1.5,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
-    const fd=new Date(r.fecha+'T12:00:00');
-    doc.text(`${DIAS[fd.getDay()]} ${fd.getDate()} de ${MESES[m-1]}  —  ${t.nombre}`,ML+4,y0+6);
-    doc.setFont('helvetica','normal');doc.setFontSize(8);
-    doc.text(`⏰ ${t.hora}`,PW-MR,y0+6,{align:'right'});
-    y0+=9;
-    ps.forEach((p,i)=>{
-      const srv2=DB.servidores.find(s=>s.id==asig[i]);
-      const rc=i%2===0?GRAY1:WHITE;doc.setFillColor(rc[0],rc[1],rc[2]);doc.rect(ML,y0,CW,7,'F');
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);
-      doc.text(p.nombre,ML+4,y0+5);
-      doc.setFont('helvetica','bold');const sc2=srv2?BLACK:GRAY2;doc.setTextColor(sc2[0],sc2[1],sc2[2]);
-      doc.text(srv2?srv2.nombre:'— Sin asignar —',ML+CW/2,y0+5);
-      if(p.area){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);doc.text(p.area,PW-MR,y0+5,{align:'right'});}
-      y0+=7;
-    });
-    doc.setDrawColor(LIGHT_ACCENT[0],LIGHT_ACCENT[1],LIGHT_ACCENT[2]);doc.rect(ML,y0-ps.length*7,CW,ps.length*7,'S');
-    y0+=5;
-  });
-
-  // SECCIÓN 3: POR PERSONA
-  doc.addPage();
-  y0=pageHeader('👤 Servicios por Persona',`${DB.servidores.filter(s=>s.activo!==false).length} servidores`);
-  const bySrv={};
-  reu.forEach(r=>{
-    const t2=DB.tipos.find(x=>x.id===r.tipoId);const ps2=t2?t2.puestos:[];
-    Object.entries(r.asig||{}).forEach(([i,sid])=>{
-      const srv2=DB.servidores.find(s=>s.id==sid);if(!srv2)return;
-      if(!bySrv[sid])bySrv[sid]={srv:srv2,servicios:[]};
-      const fd2=new Date(r.fecha+'T12:00:00');
-      bySrv[sid].servicios.push({fecha:`${DIAS[fd2.getDay()].slice(0,3)} ${fd2.getDate()}`,tipo:t2?t2.nombre:'',puesto:ps2[parseInt(i)]?ps2[parseInt(i)].nombre:''});
-    });
-  });
-  const srvList=Object.values(bySrv).sort((a,b)=>a.srv.nombre.localeCompare(b.srv.nombre));
-  const colW=CW/2-3;const colX=[ML,ML+colW+6];
-  let col2=0;
-  srvList.forEach(({srv:sv,servicios})=>{
-    const cardH=8+servicios.length*6+3;
-    if(y0+cardH>PH-14){
-      if(col2===0){col2=1;}
-      else{doc.addPage();y0=pageHeader('👤 Servicios por Persona (cont.)');col2=0;}
-    }
-    const cx=colX[col2];
-    doc.setFillColor(ACCENT[0],ACCENT[1],ACCENT[2]);doc.roundedRect(cx,y0,colW,7,1,1,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(WHITE[0],WHITE[1],WHITE[2]);
-    doc.text(sv.nombre,cx+3,y0+5);
-    doc.setFont('helvetica','normal');doc.setFontSize(7);
-    doc.text(`${servicios.length} servicio${servicios.length!==1?'s':''}`,cx+colW-3,y0+5,{align:'right'});
-    y0+=7;
-    servicios.forEach((s,i)=>{
-      const rc2=i%2===0?GRAY1:WHITE;doc.setFillColor(rc2[0],rc2[1],rc2[2]);doc.rect(cx,y0,colW,6,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(BLACK[0],BLACK[1],BLACK[2]);
-      doc.text(s.fecha,cx+2,y0+4.5);
-      doc.setFont('helvetica','normal');doc.setTextColor(GRAY2[0],GRAY2[1],GRAY2[2]);
-      doc.text(`${s.tipo} — ${s.puesto}`,cx+18,y0+4.5);
-      y0+=6;
-    });
-    if(col2===0){col2=1;y0-=cardH;}
-    else{col2=0;y0+=4;}
-  });
-
-  doc.save(`rotaciones-${mes}.pdf`);
+  doc.save('rotaciones-'+mes+'.pdf');
   toast('PDF descargado ✓');
 }
+
 function exportExcel(){
   const mes=document.getElementById('exp-mes').value;if(!mes)return toast('Seleccioná un mes','err');
   if(typeof XLSX==='undefined')return toast('Librería Excel no cargó','err');
