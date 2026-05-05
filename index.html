@@ -11,7 +11,9 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
   const firebaseConfig = {
     apiKey: "AIzaSyAW0oDkCrGrTAzGPYqFC8dVLRFRXImd4-A",
     authDomain: "rotaciones-cnxn.firebaseapp.com",
@@ -20,14 +22,46 @@
     messagingSenderId: "264140092310",
     appId: "1:264140092310:web:a78cbe11a77a5e3d4ee3b7"
   };
+
+  // ROLES definidos en Firestore — documento: usuarios/{uid} → { rol: "admin"|"editor"|"viewer" }
+  // Si no existe el documento, el usuario tiene acceso denegado (fail-secure)
   try {
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    window._fb = { db, ok: true, doc, setDoc, getDoc };
+    const auth = getAuth(app);
+    const googleProvider = new GoogleAuthProvider();
+    window._fb = { db, auth, ok: true, doc, setDoc, getDoc, getDocs, collection, query, where, GoogleAuthProvider, googleProvider, signInWithPopup, signOut };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Usuario logueado — buscar su rol en Firestore
+        try {
+          const rolDoc = await getDoc(doc(db, 'usuarios', user.uid));
+          if (rolDoc.exists()) {
+            const rol = rolDoc.data().rol || 'viewer';
+            window._authUser = { uid: user.uid, email: user.email, rol };
+          } else {
+            // No tiene documento de usuario = acceso denegado
+            window._authUser = { uid: user.uid, email: user.email, rol: 'denied' };
+          }
+        } catch(e) {
+          window._authUser = { uid: user.uid, email: user.email, rol: 'viewer' };
+        }
+        window._authReady = true;
+        window.dispatchEvent(new CustomEvent('authChanged', { detail: { logged: true } }));
+      } else {
+        window._authUser = null;
+        window._authReady = true;
+        window.dispatchEvent(new CustomEvent('authChanged', { detail: { logged: false } }));
+      }
+    });
   } catch(e) {
     window._fb = { ok: false };
+    window._authUser = null;
+    window._authReady = true;
+    window.dispatchEvent(new CustomEvent('authChanged', { detail: { logged: false } }));
   }
-  // Señalar que Firebase está listo
+
   window._fbReady = true;
   window.dispatchEvent(new Event('fbReady'));
 </script>
@@ -165,9 +199,72 @@ tr:hover td{background:rgba(124,106,255,.03);}
   .sidebar{width:52px;} .ni span:not(.ic){display:none;} .logo h1,.logo p{display:none;}
   .main{margin-left:52px;padding:14px;} .stats{grid-template-columns:1fr 1fr;} .grid2{grid-template-columns:1fr;}
 }
+
+/* ═══════════════ VIEWER MODE — solo lectura ═══════════════ */
+body.rol-viewer-mode .btn.bp,
+body.rol-viewer-mode .btn.bs,
+body.rol-viewer-mode .btn.bd,
+body.rol-viewer-mode .btn.by,
+body.rol-viewer-mode [data-needs-edit]{display:none!important;}
+
+/* ═══════════════ LOGIN SCREEN ═══════════════ */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;}
+.login-box{background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 24px 70px rgba(0,0,0,.5);}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-logo .logo-mark{font-size:2.4rem;display:block;margin-bottom:8px;}
+.login-logo h1{font-size:1.1rem;font-weight:800;letter-spacing:.04em;}
+.login-logo p{font-size:.78rem;color:var(--text3);margin-top:3px;}
+#login-err{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.25);color:var(--red);border-radius:7px;padding:8px 12px;font-size:.8rem;margin-bottom:12px;display:none;}
+.rol-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:700;}
+.rol-admin{background:rgba(124,106,255,.15);color:var(--accent);border:1px solid rgba(124,106,255,.25);}
+.rol-editor{background:rgba(45,212,160,.12);color:var(--green);border:1px solid rgba(45,212,160,.22);}
+.rol-viewer{background:rgba(144,144,170,.12);color:var(--text2);border:1px solid var(--border);}
+.rol-denied{background:rgba(255,107,107,.12);color:var(--red);border:1px solid rgba(255,107,107,.22);}
+#user-info-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border);font-size:.72rem;}
+.pending-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;}
+.pending-avatar-placeholder{width:40px;height:40px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.sol-card{background:var(--surf2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.sol-card:last-child{margin-bottom:0;}
+.sol-info{flex:1;min-width:0;}
+.sol-name{font-weight:700;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sol-email{font-size:.74rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sol-fecha{font-size:.68rem;color:var(--text3);margin-top:2px;}
+.sol-actions{display:flex;gap:6px;flex-shrink:0;align-items:center;}
 </style>
 </head>
 <body>
+
+<!-- PANTALLA PENDIENTE (solicitud enviada, esperando aprobación) -->
+<div id="pending-screen" style="position:fixed;inset:0;background:var(--bg);z-index:8999;display:none;align-items:center;justify-content:center">
+  <div class="login-box" style="text-align:center">
+    <div style="font-size:2.8rem;margin-bottom:12px">⏳</div>
+    <h2 style="font-size:1rem;font-weight:800;margin-bottom:6px">Solicitud enviada</h2>
+    <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:20px">
+      Tu solicitud de acceso fue enviada al administrador.<br>
+      Te avisarán cuando esté aprobada. Podés cerrar esta página.
+    </p>
+    <div id="pending-user-info" style="display:flex;align-items:center;gap:12px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:20px;text-align:left"></div>
+    <button class="btn bg" style="width:100%;justify-content:center" onclick="doLogout()">↪ Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- PANTALLA DE LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="logo-mark">⛪</span>
+      <h1>Técnica — Rotaciones</h1>
+      <p>Sistema de gestión de voluntarios</p>
+    </div>
+    <div id="login-err"></div>
+    <button id="login-btn" onclick="doLogin()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 20px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.2)'" onmouseout="this.style.boxShadow='none'">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Continuar con Google
+    </button>
+    <p style="text-align:center;font-size:.72rem;color:var(--text3);margin-top:16px;line-height:1.5">Acceso restringido — solo equipo autorizado.<br>Usá la cuenta de Google habilitada por el administrador.</p>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 <div class="app">
 <aside class="sidebar">
@@ -181,11 +278,16 @@ tr:hover td{background:rgba(124,106,255,.03);}
     <div class="ni" onclick="nav('rot')" id="ni-rot"><span class="ic">⟳</span><span>Rotaciones</span></div>
     <div class="ni" onclick="nav('wapp')" id="ni-wapp"><span class="ic">💬</span><span>WhatsApp</span></div>
     <div class="ni" onclick="nav('export')" id="ni-export"><span class="ic">↓</span><span>Exportar</span></div>
-    <div class="ni" onclick="nav('cfg')" id="ni-cfg"><span class="ic">⚙</span><span>Config</span></div>
+    <div class="ni" onclick="nav('cfg')" id="ni-cfg"><span class="ic">⚙</span><span>Config</span><span class="nbadge" id="sol-badge" style="display:none"></span></div>
   </nav>
   <div class="fb-bar" onclick="nav('cfg')" style="cursor:pointer" title="Ir a Config para conectar Firebase">
     <span class="dot" id="fb-dot"></span><span id="fb-lbl">Local</span>
     <span id="fb-sync" style="margin-left:auto;font-size:.68rem;color:var(--text3);transition:all .3s"></span>
+  </div>
+  <div id="user-info-bar" style="display:none">
+    <span id="user-rol-badge"></span>
+    <span id="user-email-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3)"></span>
+    <button class="btn bg btn-xs" onclick="doLogout()" title="Cerrar sesión">↪</button>
   </div>
 </aside>
 <main class="main">
@@ -401,7 +503,7 @@ tr:hover td{background:rgba(124,106,255,.03);}
 
 <!-- CONFIG -->
 <div class="pg" id="pg-cfg">
-  <div class="ph"><div class="ph-l"><h2>Configuración</h2><p>Firebase y ajustes</p></div><div class="ph-r"><span style="font-family:var(--mono);font-size:.72rem;color:var(--text3);background:var(--surf2);border:1px solid var(--border);padding:3px 10px;border-radius:8px">v4.20 — 08/03/2026</span></div></div>
+  <div class="ph"><div class="ph-l"><h2>Configuración</h2><p>Firebase y ajustes</p></div><div class="ph-r"><span style="font-family:var(--mono);font-size:.72rem;color:var(--text3);background:var(--surf2);border:1px solid var(--border);padding:3px 10px;border-radius:8px">v4.32 — Solicitudes — 2026</span></div></div>
   <div class="card">
     <div class="ct">🔧 Conectar Firebase</div>
     <div class="step"><div class="snum">1</div><div class="sbody"><h4>Crear proyecto</h4><p>Entrá a <strong>console.firebase.google.com</strong> → "Agregar proyecto" → nombre (ej: <code>iglesia-rotaciones</code>) → desactivar Analytics → Crear.</p></div></div>
@@ -435,6 +537,57 @@ tr:hover td{background:rgba(124,106,255,.03);}
     </div>
   </div>
   <div class="card"><div class="ct">Estado</div><div id="cfg-status"></div></div>
+
+  <!-- GESTIÓN DE USUARIOS — solo admin -->
+  <div class="card" id="cfg-usuarios-card">
+    <div class="ct">🔔 Solicitudes de acceso pendientes</div>
+    <div id="sol-lista"><p style="font-size:.8rem;color:var(--text3)">Cargando…</p></div>
+    <div style="height:1px;background:var(--border);margin:18px 0"></div>
+    <div class="ct">👤 Asignar rol manualmente</div>
+    <p style="font-size:.78rem;color:var(--text2);margin-bottom:12px;line-height:1.5">
+      Para casos especiales. Los roles se guardan en Firestore: colección <code style="font-size:.73rem;background:var(--surf2);padding:1px 5px;border-radius:3px;color:var(--cyan)">usuarios/{uid}</code>
+    </p>
+    <div class="frow" style="margin-bottom:14px">
+      <div class="fg half"><span class="lbl">UID del usuario</span><input id="usr-uid" placeholder="Pegá el UID de Firebase Auth"></div>
+      <div class="fg half"><span class="lbl">Rol</span>
+        <select id="usr-rol">
+          <option value="admin">Admin — acceso total</option>
+          <option value="editor" selected>Editor — editar rotaciones</option>
+          <option value="viewer">Solo lectura — ver sin editar</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn bp" onclick="asignarRol()">💾 Asignar rol</button>
+    <div id="usr-resultado" style="margin-top:12px"></div>
+    <div style="height:1px;background:var(--border);margin:18px 0"></div>
+    <div class="ct">Roles asignados</div>
+    <p style="font-size:.78rem;color:var(--text3);margin-bottom:10px">Para ver la lista completa de usuarios y sus roles, revisá la colección <code style="font-size:.73rem;background:var(--surf2);padding:1px 5px;border-radius:3px;color:var(--cyan)">usuarios</code> en Firestore Console.</p>
+    <div class="al al-i" style="font-size:.78rem">
+      📋 <strong>Reglas de Firestore recomendadas:</strong><br>
+      <pre style="font-family:var(--mono);font-size:.72rem;color:var(--cyan);margin-top:8px;line-height:1.6;white-space:pre-wrap">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /iglesia/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin','editor'];
+    }
+    match /usuarios/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+    match /solicitudes/{uid} {
+      // Cualquier usuario autenticado puede crear/leer su propia solicitud
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      // Admin puede leer y actualizar todas
+      allow read, write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+  }
+}</pre>
+    </div>
+  </div>
 </div>
 
 </main>
@@ -589,6 +742,222 @@ tr:hover td{background:rgba(124,106,255,.03);}
 <table id="export-tbl"><thead><tr><th>Fecha</th><th>Reunión</th><th>Hora</th><th>Puesto</th><th>Área</th><th>Servidor</th></tr></thead><tbody id="export-body"></tbody></table>
 
 <script>
+// ═══════════════════════════════════════
+// AUTH — Roles y acceso
+// ═══════════════════════════════════════
+// Roles: admin (todo), editor (leer+editar, no puede agregar usuarios),
+//        viewer (solo lectura), denied (acceso bloqueado)
+
+function getRol(){return window._authUser?.rol||'viewer';}
+function isAdmin(){return getRol()==='admin';}
+function canEdit(){return ['admin','editor'].includes(getRol());}
+function canView(){return ['admin','editor','viewer'].includes(getRol());}
+
+function applyRolUI(){
+  const rol=getRol();
+  // Mostrar/ocultar botones de edición según rol
+  document.querySelectorAll('[data-needs-edit]').forEach(el=>{
+    el.style.display=canEdit()?'':'none';
+  });
+  document.querySelectorAll('[data-needs-admin]').forEach(el=>{
+    el.style.display=isAdmin()?'':'none';
+  });
+  // Badge en sidebar
+  const badge=document.getElementById('user-rol-badge');
+  const emailEl=document.getElementById('user-email-lbl');
+  const bar=document.getElementById('user-info-bar');
+  if(badge&&window._authUser){
+    const labels={admin:'Admin',editor:'Editor',viewer:'Solo lectura',denied:'Sin acceso'};
+    badge.className=`rol-badge rol-${rol}`;
+    badge.textContent=labels[rol]||rol;
+    if(emailEl)emailEl.textContent=window._authUser.email||'';
+    if(bar)bar.style.display='flex';
+  }
+  // Nav: ocultar items según rol
+  // Solo lectura: ocultar botones de escritura vía CSS class
+  if(rol==='viewer'){
+    document.body.classList.add('rol-viewer-mode');
+  } else {
+    document.body.classList.remove('rol-viewer-mode');
+  }
+}
+
+// Bloquea funciones de escritura para viewers
+function guardEdit(fn){
+  return function(...args){
+    if(!canEdit()){toast('No tenés permisos de edición','err');return;}
+    return fn.apply(this,args);
+  };
+}
+
+async function doLogin(){
+  const err=document.getElementById('login-err');
+  const btn=document.getElementById('login-btn');
+  err.style.display='none';
+  btn.style.opacity='0.6';btn.style.pointerEvents='none';
+  btn.querySelector('span') ? btn.querySelector('span').textContent='Abriendo Google…' : null;
+  try{
+    const fb=window._fb;
+    if(!fb||!fb.ok){throw new Error('Firebase no disponible');}
+    await fb.signInWithPopup(fb.auth, fb.googleProvider);
+    // onAuthStateChanged maneja el resto
+  }catch(e){
+    let msg='No se pudo iniciar sesión con Google.';
+    if(e.code==='auth/popup-closed-by-user')msg='Cerraste la ventana de Google. Intentá de nuevo.';
+    if(e.code==='auth/popup-blocked')msg='El popup fue bloqueado. Permitilo en tu navegador.';
+    if(e.code==='auth/network-request-failed')msg='Sin conexión. Verificá tu internet.';
+    if(e.code==='auth/cancelled-popup-request')return; // silencioso
+    err.textContent=msg;err.style.display='block';
+    btn.style.opacity='';btn.style.pointerEvents='';
+  }
+}
+
+async function doLogout(){
+  try{
+    const fb=window._fb;
+    if(fb&&fb.ok&&fb.auth)await fb.signOut(fb.auth);
+  }catch(e){}
+  // onAuthStateChanged mostrará el login
+}
+
+function showLogin(){
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('pending-screen').style.display='none';
+  const app=document.querySelector('.app');
+  if(app)app.style.visibility='hidden';
+}
+
+function hideLogin(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('pending-screen').style.display='none';
+  const app=document.querySelector('.app');
+  if(app)app.style.visibility='visible';
+}
+
+function showPending(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('pending-screen').style.display='flex';
+  const app=document.querySelector('.app');
+  if(app)app.style.visibility='hidden';
+  const u=window._authUser;
+  const info=document.getElementById('pending-user-info');
+  if(info&&u){
+    const foto=u.photoURL
+      ?`<img src="${u.photoURL}" class="pending-avatar" referrerpolicy="no-referrer">`
+      :`<div class="pending-avatar-placeholder">👤</div>`;
+    info.innerHTML=`${foto}<div><div style="font-weight:700;font-size:.85rem">${u.displayName||u.email}</div><div style="font-size:.75rem;color:var(--text2)">${u.email}</div></div>`;
+  }
+}
+
+// ═══ SOLICITUDES ═══
+async function enviarSolicitud(user){
+  const fb=window._fb;if(!fb||!fb.ok)return;
+  const ref=fb.doc(fb.db,'solicitudes',user.uid);
+  const snap=await fb.getDoc(ref);
+  if(!snap.exists()||snap.data().estado==='rechazado'){
+    await fb.setDoc(ref,{
+      uid:user.uid,
+      email:user.email||'',
+      displayName:user.displayName||'',
+      photoURL:user.photoURL||'',
+      estado:'pendiente',
+      fechaSolicitud:Date.now()
+    });
+  }
+}
+
+async function cargarSolicitudesPendientes(){
+  const fb=window._fb;if(!fb||!fb.ok||!isAdmin())return;
+  try{
+    const snap=await fb.getDocs(fb.query(fb.collection(fb.db,'solicitudes'),fb.where('estado','==','pendiente')));
+    const badge=document.getElementById('sol-badge');
+    if(badge){
+      if(snap.size>0){badge.textContent=snap.size;badge.style.display='';}
+      else{badge.style.display='none';}
+    }
+    window._solicitudes=snap.docs.map(d=>d.data());
+  }catch(e){window._solicitudes=[];}
+}
+
+async function aprobarSolicitud(uid,rol){
+  const fb=window._fb;if(!fb||!fb.ok)return;
+  try{
+    await fb.setDoc(fb.doc(fb.db,'usuarios',uid),{rol,assignedBy:fb.auth.currentUser?.uid,assignedAt:Date.now()});
+    await fb.setDoc(fb.doc(fb.db,'solicitudes',uid),{estado:'aprobado',aprobadoAt:Date.now()},{merge:true});
+    await cargarSolicitudesPendientes();
+    renderSolicitudes();
+    toast(`Usuario aprobado como ${rol} ✓`);
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+async function rechazarSolicitud(uid){
+  const fb=window._fb;if(!fb||!fb.ok)return;
+  if(!confirm('¿Rechazar esta solicitud? El usuario no podrá acceder.'))return;
+  try{
+    await fb.setDoc(fb.doc(fb.db,'solicitudes',uid),{estado:'rechazado',rechazadoAt:Date.now()},{merge:true});
+    await cargarSolicitudesPendientes();
+    renderSolicitudes();
+    toast('Solicitud rechazada');
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+function renderSolicitudes(){
+  const cont=document.getElementById('sol-lista');if(!cont)return;
+  const sols=window._solicitudes||[];
+  if(!sols.length){
+    cont.innerHTML='<p style="font-size:.8rem;color:var(--text3)">Sin solicitudes pendientes. ✅</p>';
+    return;
+  }
+  cont.innerHTML=sols.map(s=>{
+    const foto=s.photoURL
+      ?`<img src="${s.photoURL}" class="pending-avatar" referrerpolicy="no-referrer">`
+      :`<div class="pending-avatar-placeholder">👤</div>`;
+    const fecha=s.fechaSolicitud
+      ?new Date(s.fechaSolicitud).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    return `<div class="sol-card">
+      ${foto}
+      <div class="sol-info">
+        <div class="sol-name">${s.displayName||'Sin nombre'}</div>
+        <div class="sol-email">${s.email}</div>
+        <div class="sol-fecha">Solicitó el ${fecha}</div>
+      </div>
+      <div class="sol-actions">
+        <select id="rol-sel-${s.uid}" style="background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:.75rem;color:var(--text);font-family:var(--font)">
+          <option value="editor" selected>Editor</option>
+          <option value="admin">Admin</option>
+          <option value="viewer">Solo lectura</option>
+        </select>
+        <button class="btn bs btn-xs" onclick="aprobarSolicitud('${s.uid}',document.getElementById('rol-sel-${s.uid}').value)">✓ Aprobar</button>
+        <button class="btn bd btn-xs" onclick="rechazarSolicitud('${s.uid}')">✗</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.addEventListener('authChanged', async (e)=>{
+  if(e.detail.logged){
+    const rol=getRol();
+    if(rol==='denied'){
+      await enviarSolicitud(window._authUser);
+      showPending();
+      const btn=document.getElementById('login-btn');
+      if(btn){btn.style.opacity='';btn.style.pointerEvents='';}
+      return;
+    }
+    hideLogin();
+    applyRolUI();
+    if(isAdmin())cargarSolicitudesPendientes();
+    if(window._appInited){applyRolUI();return;}
+    window._appInited=true;
+    initApp();
+  } else {
+    showLogin();
+    document.getElementById('user-info-bar').style.display='none';
+    const btn=document.getElementById('login-btn');
+    if(btn){btn.style.opacity='';btn.style.pointerEvents='';}
+  }
+});
+
 // ═══════════════════════════════════════
 // AREAS — paleta y defaults
 // ═══════════════════════════════════════
@@ -1991,6 +2360,23 @@ function renderDash(){
 // ═══════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════
+async function asignarRol(){
+  if(!isAdmin())return toast('Solo admins pueden asignar roles','err');
+  const uid=document.getElementById('usr-uid').value.trim();
+  const rol=document.getElementById('usr-rol').value;
+  if(!uid)return toast('Ingresá el UID','err');
+  const res=document.getElementById('usr-resultado');
+  res.innerHTML='<span style="color:var(--text3);font-size:.8rem">Guardando…</span>';
+  try{
+    const fb=window._fb;
+    await fb.setDoc(fb.doc(fb.db,'usuarios',uid),{rol,assignedBy:fb.auth.currentUser?.uid,assignedAt:Date.now()});
+    res.innerHTML=`<div class="al al-s">✅ Rol <strong>${rol}</strong> asignado al usuario <code style="font-size:.75rem">${uid.slice(0,12)}…</code></div>`;
+    document.getElementById('usr-uid').value='';
+  }catch(e){
+    res.innerHTML=`<div class="al al-w">⚠ Error: ${e.message}</div>`;
+  }
+}
+
 function saveConfig(){
   const cfg={apiKey:document.getElementById('c-key').value.trim(),authDomain:document.getElementById('c-auth').value.trim(),
     projectId:document.getElementById('c-proj').value.trim(),storageBucket:document.getElementById('c-bucket').value.trim(),
@@ -1999,6 +2385,12 @@ function saveConfig(){
   localStorage.setItem('ig-fb-cfg',JSON.stringify(cfg));toast('Guardado. Recargá la página.');renderCfg();
 }
 function renderCfg(){
+  const card=document.getElementById('cfg-usuarios-card');
+  if(card)card.style.display=isAdmin()?'block':'none';
+  if(isAdmin()){
+    cargarSolicitudesPendientes().then(()=>renderSolicitudes());
+  }
+
   const cfg=(() => { try { return JSON.parse(localStorage.getItem('ig-fb-cfg')||'{}'); } catch(e){ return {}; } })();
   if(cfg.apiKey&&cfg.apiKey!=='TU_API_KEY'){
     [['key','apiKey'],['auth','authDomain'],['proj','projectId'],['bucket','storageBucket'],['sender','messagingSenderId'],['appid','appId']].forEach(([k,v])=>{const el=document.getElementById('c-'+k);if(el)el.value=cfg[v]||'';});
@@ -2011,10 +2403,35 @@ function renderCfg(){
   if(mx)mx.value=c.maxMes||6;if(cc)cc.value=c.consec===false?'0':'1';
 }
 
+
+// ═══════════════════════════════════════
+// APPLY ROLE GUARDS — wrap write functions
+// ═══════════════════════════════════════
+// Called after function definitions load
+function applyGuards(){
+  if(typeof addSrv!=="undefined"){const _orig_addSrv=addSrv;window.addSrv=guardEdit(_orig_addSrv);}
+  if(typeof updSrv!=="undefined"){const _orig_updSrv=updSrv;window.updSrv=guardEdit(_orig_updSrv);}
+  if(typeof toggleBaja!=="undefined"){const _orig_toggleBaja=toggleBaja;window.toggleBaja=guardEdit(_orig_toggleBaja);}
+  if(typeof addReu!=="undefined"){const _orig_addReu=addReu;window.addReu=guardEdit(_orig_addReu);}
+  if(typeof generarMes!=="undefined"){const _orig_generarMes=generarMes;window.generarMes=guardEdit(_orig_generarMes);}
+  if(typeof autoAsignar!=="undefined"){const _orig_autoAsignar=autoAsignar;window.autoAsignar=guardEdit(_orig_autoAsignar);}
+  if(typeof limpiarMes!=="undefined"){const _orig_limpiarMes=limpiarMes;window.limpiarMes=guardEdit(_orig_limpiarMes);}
+  if(typeof saveAsig!=="undefined"){const _orig_saveAsig=saveAsig;window.saveAsig=guardEdit(_orig_saveAsig);}
+  if(typeof delReu!=="undefined"){const _orig_delReu=delReu;window.delReu=guardEdit(_orig_delReu);}
+  if(typeof saveArea!=="undefined"){const _orig_saveArea=saveArea;window.saveArea=guardEdit(_orig_saveArea);}
+  if(typeof delArea!=="undefined"){const _orig_delArea=delArea;window.delArea=guardEdit(_orig_delArea);}
+  if(typeof saveTipo!=="undefined"){const _orig_saveTipo=saveTipo;window.saveTipo=guardEdit(_orig_saveTipo);}
+  if(typeof procLote!=="undefined"){const _orig_procLote=procLote;window.procLote=guardEdit(_orig_procLote);}
+  if(typeof confirmarImport!=="undefined"){const _orig_confirmarImport=confirmarImport;window.confirmarImport=guardEdit(_orig_confirmarImport);}
+  if(typeof importBackup!=="undefined"){const _orig_importBackup=importBackup;window.importBackup=guardEdit(_orig_importBackup);}
+  if(typeof confirmarDup!=="undefined"){const _orig_confirmarDup=confirmarDup;window.confirmarDup=guardEdit(_orig_confirmarDup);}
+}
+
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
-async function init(){
+async function initApp(){
+  applyGuards();
   loadLocal();
   const fbOk=await loadFB();
   const fb=window._fb;
@@ -2039,14 +2456,16 @@ async function init(){
   document.getElementById('rm-tipo')?.addEventListener('change',previewMes);
   renderDash();
 }
-// Esperar a que Firebase esté listo antes de iniciar
-if(window._fbReady) {
-  init();
-} else {
-  window.addEventListener('fbReady', init, { once: true });
-  // Fallback: si Firebase tarda más de 4 segundos, arrancar igual
-  setTimeout(() => { if(!window._fbReady){ window._fb={ok:false}; init(); } }, 4000);
-}
+// Con auth: esperar a onAuthStateChanged para iniciar
+// showLogin inmediatamente hasta que Firebase confirme
+showLogin();
+// Fallback: si Firebase tarda más de 6 segundos sin auth, mostrar error en login
+setTimeout(() => {
+  if(!window._authReady){
+    const err=document.getElementById('login-err');
+    if(err){err.textContent='Error conectando con Firebase. Verificá tu conexión.';err.style.display='block';}
+  }
+}, 6000);
 </script>
 </body>
 </html>
