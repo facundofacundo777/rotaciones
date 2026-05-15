@@ -275,12 +275,18 @@ body.rol-viewer-mode [data-needs-edit]{display:none!important;}
       <h1>Técnica — Rotaciones</h1>
       <p>Sistema de gestión de voluntarios</p>
     </div>
-    <div id="login-err"></div>
-    <button id="login-btn" onclick="doLogin()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 20px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.2)'" onmouseout="this.style.boxShadow='none'">
-      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
-      Continuar con Google
+    <div id="login-err" style="background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.25);color:var(--red);border-radius:7px;padding:8px 12px;font-size:.8rem;margin-bottom:12px;display:none"></div>
+    <div class="fg">
+      <span class="lbl">Contraseña</span>
+      <input type="password" id="pw-input" placeholder="Ingresá la contraseña"
+        onkeydown="if(event.key==='Enter')checkPW()">
+    </div>
+    <button onclick="checkPW()" style="width:100%;margin-top:12px;padding:12px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;font-family:var(--font)">
+      Entrar
     </button>
-    <p style="text-align:center;font-size:.72rem;color:var(--text3);margin-top:16px;line-height:1.5">Acceso restringido — solo equipo autorizado.<br>Usá la cuenta de Google habilitada por el administrador.</p>
+    <p style="text-align:center;font-size:.72rem;color:var(--text3);margin-top:16px">
+      Acceso restringido — solo equipo autorizado.
+    </p>
   </div>
 </div>
 
