@@ -787,130 +787,85 @@ window.onerror = function(msg, src, line, col, err) {
 </script>
 <script>
 // ═══════════════════════════════════════
-// AUTH — Roles y acceso
+// AUTH — Contraseña simple compartida
 // ═══════════════════════════════════════
-// Roles: admin (todo), editor (leer+editar, no puede agregar usuarios),
-//        viewer (solo lectura), denied (acceso bloqueado)
 
-function getRol(){return window._authUser?.rol||'viewer';}
-function isAdmin(){return getRol()==='admin';}
-function canEdit(){return ['admin','editor'].includes(getRol());}
-function canView(){return ['admin','editor','viewer'].includes(getRol());}
+// ⚠️ CAMBIÁ ESTA CONTRASEÑA POR LA QUE QUIERAS
+const APP_PASSWORD = 'cnxn2025';
 
-function applyRolUI(){
-  const rol=getRol();
-  // Mostrar/ocultar botones de edición según rol
-  document.querySelectorAll('[data-needs-edit]').forEach(el=>{
-    el.style.display=canEdit()?'':'none';
-  });
-  document.querySelectorAll('[data-needs-admin]').forEach(el=>{
-    el.style.display=isAdmin()?'':'none';
-  });
-  // Badge en sidebar
-  const badge=document.getElementById('user-rol-badge');
-  const emailEl=document.getElementById('user-email-lbl');
-  const bar=document.getElementById('user-info-bar');
-  if(badge&&window._authUser){
-    const u=window._authUser;
-    const labels={admin:'Admin',editor:'Editor',viewer:'Solo lectura',denied:'Sin acceso'};
-    badge.className=`rol-badge rol-${rol}`;
-    badge.textContent=labels[rol]||rol;
-    // Mostrar nombre real de Google, no solo el email
-    if(emailEl)emailEl.textContent=u.displayName||u.email||'';
-    if(bar)bar.style.display='flex';
-    // Avatar en sidebar si hay foto
-    const avatarEl=document.getElementById('user-avatar-sb');
-    if(avatarEl){
-      if(u.photoURL){
-        avatarEl.innerHTML=`<img src="${u.photoURL}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">`;
-      } else {
-        const initials=(u.displayName||u.email||'?').charAt(0).toUpperCase();
-        avatarEl.innerHTML=`<div style="width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">${initials}</div>`;
-      }
+function checkPW() {
+  const val = document.getElementById('pw-input').value;
+  const err = document.getElementById('login-err');
+  if (val === APP_PASSWORD) {
+    // Guardar sesión en sessionStorage (dura hasta cerrar el navegador)
+    sessionStorage.setItem('ig-auth', 'ok');
+    hideLogin();
+    if (!window._appInited) {
+      window._appInited = true;
+      initApp();
     }
-  }
-  // Nav: ocultar items según rol
-  // Solo lectura: ocultar botones de escritura vía CSS class
-  if(rol==='viewer'){
-    document.body.classList.add('rol-viewer-mode');
   } else {
-    document.body.classList.remove('rol-viewer-mode');
+    err.textContent = 'Contraseña incorrecta.';
+    err.style.display = 'block';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
   }
 }
 
-// Bloquea funciones de escritura para viewers
-function guardEdit(fn){
-  return function(...args){
-    if(!canEdit()){toast('No tenés permisos de edición','err');return;}
-    return fn.apply(this,args);
-  };
+function doLogout() {
+  sessionStorage.removeItem('ig-auth');
+  showLogin();
 }
 
-async function doLogin(){
-  const err=document.getElementById('login-err');
-  const btn=document.getElementById('login-btn');
-  err.style.display='none';
-  btn.style.opacity='0.6';btn.style.pointerEvents='none';
-  try{
-    const fb=window._fb;
-    if(!fb||!fb.ok){throw new Error('Firebase no disponible');}
-    const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if(isMobile){
-      // Móvil: redirect (no bloquea popups)
-      await fb.signInWithRedirect(fb.auth, fb.googleProvider);
-      // La página se recarga — onAuthStateChanged + getRedirectResult manejan el resto
-    } else {
-      // Desktop: popup
-      await fb.signInWithPopup(fb.auth, fb.googleProvider);
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  const app = document.querySelector('.app');
+  if (app) app.style.visibility = 'hidden';
+}
+
+function hideLogin() {
+  document.getElementById('login-screen').style.display = 'none';
+  const app = document.querySelector('.app');
+  if (app) app.style.visibility = 'visible';
+}
+
+// Roles — con contraseña compartida todos son "admin" (acceso total)
+function getRol()   { return 'admin'; }
+function isAdmin()  { return true; }
+function canEdit()  { return true; }
+function canView()  { return true; }
+
+function applyRolUI() {
+  // Mostrar barra inferior con botón de salir
+  const bar = document.getElementById('user-info-bar');
+  const emailEl = document.getElementById('user-email-lbl');
+  const avatarEl = document.getElementById('user-avatar-sb');
+  if (bar) bar.style.display = 'flex';
+  if (emailEl) emailEl.textContent = 'Equipo técnico';
+  if (avatarEl) avatarEl.innerHTML = `<div style="width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">⛪</div>`;
+}
+
+function guardEdit(fn) {
+  return function(...args) { return fn.apply(this, args); };
+}
+
+// Verificar si ya hay sesión activa al cargar la página
+function checkSession() {
+  if (sessionStorage.getItem('ig-auth') === 'ok') {
+    hideLogin();
+    applyRolUI();
+    if (!window._appInited) {
+      window._appInited = true;
+      initApp();
     }
-  }catch(e){
-    let msg='No se pudo iniciar sesión con Google.';
-    if(e.code==='auth/popup-closed-by-user')msg='Cerraste la ventana de Google. Intentá de nuevo.';
-    if(e.code==='auth/popup-blocked')msg='El popup fue bloqueado. Permitilo en tu navegador.';
-    if(e.code==='auth/network-request-failed')msg='Sin conexión. Verificá tu internet.';
-    if(e.code==='auth/cancelled-popup-request')return;
-    err.textContent=msg;err.style.display='block';
-    btn.style.opacity='';btn.style.pointerEvents='';
+  } else {
+    showLogin();
+    // Foco automático en el campo contraseña
+    setTimeout(() => {
+      document.getElementById('pw-input')?.focus();
+    }, 100);
   }
 }
-
-async function doLogout(){
-  try{
-    const fb=window._fb;
-    if(fb&&fb.ok&&fb.auth)await fb.signOut(fb.auth);
-  }catch(e){}
-  // onAuthStateChanged mostrará el login
-}
-
-function showLogin(){
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('pending-screen').style.display='none';
-  const app=document.querySelector('.app');
-  if(app)app.style.visibility='hidden';
-}
-
-function hideLogin(){
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('pending-screen').style.display='none';
-  const app=document.querySelector('.app');
-  if(app)app.style.visibility='visible';
-}
-
-function showPending(){
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('pending-screen').style.display='flex';
-  const app=document.querySelector('.app');
-  if(app)app.style.visibility='hidden';
-  const u=window._authUser;
-  const info=document.getElementById('pending-user-info');
-  if(info&&u){
-    const foto=u.photoURL
-      ?`<img src="${u.photoURL}" class="pending-avatar" referrerpolicy="no-referrer">`
-      :`<div class="pending-avatar-placeholder">👤</div>`;
-    info.innerHTML=`${foto}<div><div style="font-weight:700;font-size:.85rem">${u.displayName||u.email}</div><div style="font-size:.75rem;color:var(--text2)">${u.email}</div></div>`;
-  }
-}
-
 // ═══ SOLICITUDES ═══
 async function enviarSolicitud(user){
   const fb=window._fb;if(!fb||!fb.ok)return;
@@ -2523,16 +2478,8 @@ async function initApp(){
   document.getElementById('rm-tipo')?.addEventListener('change',previewMes);
   renderDash();
 }
-// Con auth: esperar a onAuthStateChanged para iniciar
-// showLogin inmediatamente hasta que Firebase confirme
-showLogin();
-// Fallback: si Firebase tarda más de 6 segundos sin auth, mostrar error en login
-setTimeout(() => {
-  if(!window._authReady){
-    const err=document.getElementById('login-err');
-    if(err){err.textContent='Error conectando con Firebase. Verificá tu conexión.';err.style.display='block';}
-  }
-}, 6000);
+// Inicialización con contraseña simple
+checkSession();
 </script>
 </body>
 </html>
