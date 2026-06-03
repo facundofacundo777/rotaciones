@@ -2864,13 +2864,17 @@ async function initApp(){
   loadLocal();
   const fbOk=await loadFB();
   const fb=window._fb;
-  document.getElementById('fb-dot').className=fb&&fb.ok?'dot on':'dot';
-  document.getElementById('fb-lbl').textContent=fb&&fb.ok?'En línea':'Solo local';
+  if(document.getElementById('fb-dot')) document.getElementById('fb-dot').className=fb&&fb.ok?'dot on':'dot';
+  if(document.getElementById('fb-lbl')) document.getElementById('fb-lbl').textContent=fb&&fb.ok?'En línea':'Solo local';
   const n=nowMes();
-  document.getElementById('rot-mes').value=n;
-  document.getElementById('wa-mes').value=n;
-  document.getElementById('exp-mes').value=n;
+  
+  // Solo setear si existen
+  if(document.getElementById('rot-mes')) document.getElementById('rot-mes').value=n;
+  if(document.getElementById('wa-mes')) document.getElementById('wa-mes').value=n;
+  if(document.getElementById('exp-mes')) document.getElementById('exp-mes').value=n;
+  
   rotMes=n;
+  
   // Tipos demo si no hay ninguno
   if(!DB.tipos.length){
     DB.tipos=[
@@ -2878,16 +2882,21 @@ async function initApp(){
       {id:DB.nextId++,nombre:'Miércoles',hora:'20:00',puestos:[{nombre:'Sonido',area:'Op. Sonido'},{nombre:'Iluminación',area:'Iluminación'},{nombre:'Pantalla',area:'Pantalla'},{nombre:'Streaming',area:'Dir. Streaming'}]},
     ];saveLocal();
   }
-  renderAreaChecks('an-areas','an',[]);
-  // Preview generador de mes
-  [0,1,2,3,4,5,6].forEach(i=>document.getElementById(`rm-d${i}`)?.addEventListener('change',previewMes));
-  document.getElementById('rm-mes')?.addEventListener('change',previewMes);
-  document.getElementById('rm-tipo')?.addEventListener('change',previewMes);
   
-  // ⏳ Pequeño delay para asegurar que el DOM está listo
+  if(document.getElementById('an-areas')) renderAreaChecks('an-areas','an',[]);
+  
+  // Preview generador de mes
+  [0,1,2,3,4,5,6].forEach(i=>{
+    const el = document.getElementById(`rm-d${i}`);
+    if(el) el.addEventListener('change',previewMes);
+  });
+  if(document.getElementById('rm-mes')) document.getElementById('rm-mes').addEventListener('change',previewMes);
+  if(document.getElementById('rm-tipo')) document.getElementById('rm-tipo').addEventListener('change',previewMes);
+  
+  // Renderizar Dashboard
   setTimeout(() => {
     renderDash();
-  }, 100);
+  }, 50);
 }
 // Inicialización con contraseña simple
 checkSession();
