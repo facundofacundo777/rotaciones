@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -505,6 +506,7 @@ body.rol-viewer-mode [data-needs-edit]{display:none!important;}
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn bs" onclick="copyAreaWATextV2()" style="flex:1">📋 Copiar</button>
         <button class="btn bg" onclick="abrirWhatsAppAreaV2()">💬 Enviar por WhatsApp</button>
+        <button class="btn bw" onclick="generarCartelPNG()" style="flex:1">🎨 Descargar Cartel PNG</button>
       </div>
     </div>
 </div>
@@ -2623,6 +2625,238 @@ function abrirWhatsAppAreaV2() {
   
   const texto = encodeURIComponent(textarea.value);
   window.open(`https://wa.me/?text=${texto}`, '_blank');
+}
+
+// ============================================================
+// GENERADOR DE CARTEL PNG - Renderiza dentro de la página
+// ============================================================
+
+async function generarCartelPNG() {
+  const desde = window._areaFechaDesde;
+  const hasta = window._areaFechaHasta;
+  const areas = getSelectedAreasV2();
+  
+  if (!desde || !hasta) return toast('Selecciona rango completo (desde y hasta)', 'err');
+  if (areas.length === 0) return toast('Selecciona al menos un área', 'err');
+  
+  const desdeObj = new Date(desde + 'T00:00:00');
+  const hastaObj = new Date(hasta + 'T23:59:59');
+  
+  const todasReuniones = [];
+  Object.entries(DB.reuniones).forEach(([mes, reuniones]) => {
+    reuniones.forEach(r => {
+      const fechaR = new Date(r.fecha + 'T12:00:00');
+      if (fechaR >= desdeObj && fechaR <= hastaObj) {
+        todasReuniones.push(r);
+      }
+    });
+  });
+  
+  todasReuniones.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  
+  if (todasReuniones.length === 0) {
+    return toast('Sin reuniones en ese rango de fechas', 'err');
+  }
+  
+  const grupos = {};
+  todasReuniones.forEach(r => {
+    const tipo = DB.tipos.find(t => t.id === r.tipoId);
+    if (!tipo) return;
+    
+    const key = `${r.fecha}|${tipo.hora}`;
+    if (!grupos[key]) {
+      grupos[key] = { fecha: r.fecha, hora: tipo.hora, puestos: [] };
+    }
+    
+    tipo.puestos.forEach((puesto, idx) => {
+      if (areas.includes(puesto.area)) {
+        const sidAsignado = r.asig && r.asig[idx];
+        const srv = sidAsignado ? DB.servidores.find(s => s.id == sidAsignado) : null;
+        
+        grupos[key].puestos.push({
+          nombre: puesto.nombre,
+          area: puesto.area,
+          servidor: srv ? srv.nombre : null,
+          emoji: dbAreas().find(a => a.nombre === puesto.area)?.icono || '◈'
+        });
+      }
+    });
+  });
+  
+  // Generar fechas para el título
+  const desdeObj2 = new Date(desde + 'T12:00:00');
+  const hastaObj2 = new Date(hasta + 'T12:00:00');
+  const mesDesde = MESES[desdeObj2.getMonth()];
+  const mesHasta = MESES[hastaObj2.getMonth()];
+  const anyoDesde = desdeObj2.getFullYear();
+  const anyoHasta = hastaObj2.getFullYear();
+  
+  let titulo = `ROTACIONES`;
+  if (anyoDesde === anyoHasta) {
+    if (desdeObj2.getMonth() === hastaObj2.getMonth()) {
+      titulo += ` — ${mesDesde} ${anyoDesde}`;
+    } else {
+      titulo += ` — ${mesDesde} a ${mesHasta} ${anyoDesde}`;
+    }
+  }
+  
+  // Crear contenedor visible dentro de la página (hereda estilos)
+  const container = document.createElement('div');
+  container.id = 'cartel-temporal-preview';
+  container.style.position = 'fixed';
+  container.style.top = '50%';
+  container.style.left = '50%';
+  container.style.transform = 'translate(-50%, -50%)';
+  container.style.zIndex = '10000';
+  container.style.maxHeight = '90vh';
+  container.style.overflowY = 'auto';
+  container.style.background = 'var(--bg)';
+  container.style.padding = '20px';
+  container.style.borderRadius = '12px';
+  
+  // Crear el HTML del cartel
+  const cartelHTML = crearHTMLCartel(grupos, titulo);
+  container.innerHTML = cartelHTML;
+  document.body.appendChild(container);
+  
+  // Esperar a que se renderice con todos los estilos de la página
+  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  // Capturar el cartel interno
+  const cartelDiv = container.querySelector('.cartel-container');
+  
+  try {
+    const canvas = await html2canvas(cartelDiv, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: 'transparent',
+      logging: false,
+      width: 500,
+      allowTaint: true
+    });
+    
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    const nombreArchivo = `Rotaciones_${mesDesde}_${anyoDesde}.png`;
+    link.download = nombreArchivo;
+    link.click();
+    
+    toast('Cartel descargado ✓');
+  } catch (err) {
+    console.error('Error al descargar cartel:', err);
+    toast('Error al descargar cartel', 'err');
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
+function crearHTMLCartel(grupos, titulo) {
+  let html = `
+    <div class="cartel-container" style="
+      background: linear-gradient(135deg, var(--accent) 0%, #764ba2 100%);
+      padding: 32px 24px;
+      border-radius: 16px;
+      color: white;
+      font-family: var(--font);
+      width: 500px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    ">
+      <div style="text-align: center; margin-bottom: 28px;">
+        <div style="font-size: 32px; margin-bottom: 8px;">🎙</div>
+        <div style="font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1;">
+          ${titulo}
+        </div>
+      </div>
+  `;
+  
+  // Agregar cada grupo de reuniones
+  Object.values(grupos).forEach(grupo => {
+    const fecha = new Date(grupo.fecha + 'T12:00:00');
+    const d = fecha.getDate();
+    const diaName = DIAS[fecha.getDay()];
+    
+    html += `
+      <div style="
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 16px;
+      ">
+        <div style="
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--yellow);
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        ">
+          <span>📅</span>
+          <span>${diaName.toUpperCase()} ${d} · ${grupo.hora}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+    `;
+    
+    // Mostrar puestos
+    grupo.puestos.forEach((p, idx) => {
+      const tieneServidor = p.servidor !== null;
+      const badgeStyle = tieneServidor 
+        ? 'background: var(--green); color: #065f46;'
+        : 'background: var(--red); color: #7f1d1d;';
+      
+      html += `
+        <div style="
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
+        ">
+          <span style="
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            ${badgeStyle}
+          ">${p.nombre.length > 15 ? p.nombre.substring(0, 12) + '...' : p.nombre}</span>
+          <span style="flex: 1; font-size: 14px; color: white;">
+            ${p.servidor || '⚠️ Sin asignar'}
+          </span>
+        </div>
+      `;
+    });
+    
+    html += `
+        </div>
+      </div>
+    `;
+  });
+  
+  // Pie del cartel
+  html += `
+    <div style="
+      text-align: center;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 500;
+    ">
+      ✓ Confirmá asistencia en el grupo
+    </div>
+    </div>
+  `;
+  
+  return html;
 }
 
 async function initApp(){
