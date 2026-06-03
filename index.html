@@ -2883,7 +2883,11 @@ async function initApp(){
   [0,1,2,3,4,5,6].forEach(i=>document.getElementById(`rm-d${i}`)?.addEventListener('change',previewMes));
   document.getElementById('rm-mes')?.addEventListener('change',previewMes);
   document.getElementById('rm-tipo')?.addEventListener('change',previewMes);
-  renderDash();
+  
+  // ⏳ Pequeño delay para asegurar que el DOM está listo
+  setTimeout(() => {
+    renderDash();
+  }, 100);
 }
 // Inicialización con contraseña simple
 checkSession();
