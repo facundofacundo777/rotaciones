@@ -491,6 +491,14 @@ body.rol-viewer-mode [data-needs-edit]{display:none!important;}
       <button class="btn by" onclick="exportTarjetas()" style="width:100%">↓ Generar tarjetas</button>
     </div>
 
+    <!-- Imágenes por área -->
+    <div class="card" style="border:1px solid rgba(34,211,238,.3);display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:1.8rem">🧩</div>
+      <div style="font-weight:700;font-size:.95rem">Placas semanales</div>
+      <div style="font-size:.78rem;color:var(--text3);line-height:1.5;flex:1">Una imagen por área con los días de reunión, puestos y personas asignadas. Ideal para enviar a cada área por WhatsApp.</div>
+      <button class="btn bg" onclick="exportImagenesPorArea()" style="width:100%">↓ Generar placas</button>
+    </div>
+
     <!-- Excel -->
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <div style="font-size:1.8rem">📊</div>
@@ -532,6 +540,26 @@ body.rol-viewer-mode [data-needs-edit]{display:none!important;}
     </div>
   </div>
 </div>
+
+
+<!-- MODAL IMÁGENES SEMANALES -->
+<div class="mbg" id="m-area-imgs">
+  <div class="modal" style="max-width:640px;width:95%;max-height:88vh;overflow-y:auto">
+    <div class="mh"><h3>🧩 Placas semanales 16:9</h3><button class="mx" onclick="closeM('m-area-imgs')">×</button></div>
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:12px;line-height:1.5">
+      Genera placas en formato 16:9 agrupadas por semana real, de lunes a domingo. Podés seleccionar qué áreas exportar. Las áreas seleccionadas se unifican en la misma imagen semanal. Cada placa contiene todo lo asignado dentro de esa semana completa, sin dividirla en partes. La exportación general y la unificación de áreas seleccionadas ahora usan un formato más compacto para evitar tanto espacio horizontal y mejorar la lectura.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn bp btn-sm" onclick="descargarAreasSeleccionadas()">↓ Unificar seleccionadas</button>
+      <button class="btn bg btn-sm" onclick="seleccionarTodasAreasExport(true)">Seleccionar todas</button>
+      <button class="btn bg btn-sm" onclick="seleccionarTodasAreasExport(false)">Limpiar</button>
+      <button class="btn bg btn-sm" onclick="descargarImagenesGeneralesSemanales()">↓ General semanal</button>
+      <button class="btn bg btn-sm" onclick="closeM('m-area-imgs')">Cerrar</button>
+    </div>
+    <div id="area-imgs-lista"></div>
+  </div>
+</div>
+
 
 
 <!-- CONFIG -->
@@ -2290,6 +2318,682 @@ function descargarTarjeta(sid,mes){
   a.href=canvas.toDataURL('image/png');a.click();
   toast(`Tarjeta de ${srv.nombre} descargada ✓`);
 }
+
+
+
+// ═══════════════════════════════════════
+// EXPORTAR — IMÁGENES POR ÁREA
+// ═══════════════════════════════════════
+
+
+function exportImagenesPorArea(){
+  const mes=document.getElementById('exp-mes').value;
+  if(!mes)return toast('Seleccioná un mes','err');
+
+  const areas=getAreasExportablesSemanal(mes);
+  if(!areas.length)return toast('No hay áreas con servicios en las semanas de este mes','err');
+
+  const semanas=getWeeksForMonthMondaySunday(mes);
+
+  document.getElementById('area-imgs-lista').innerHTML=areas.map((area,idx)=>{
+    const semanasActivas=semanas.filter(sem=>getServiciosAreaEnSemana(area.nombre,sem).length>0).length;
+    const puestos=semanas.reduce((acc,sem)=>acc+getServiciosAreaEnSemana(area.nombre,sem).length,0);
+    const encoded=encodeURIComponent(area.nombre);
+    const chkId=`area-exp-${idx}`;
+
+    return `
+      <label for="${chkId}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border-radius:9px;background:var(--surf2);border:1px solid var(--border);margin-bottom:7px;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          <input type="checkbox" class="area-export-check" id="${chkId}" value="${encoded}" checked style="width:auto;flex-shrink:0">
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${area.icono||'◈'} ${area.nombre}</div>
+            <div style="font-size:.72rem;color:var(--text3)">${semanasActivas} semana${semanasActivas!==1?'s':''} · ${puestos} puesto${puestos!==1?'s':''}</div>
+          </div>
+        </div>
+        <button type="button" class="btn bp btn-xs" onclick="event.preventDefault();event.stopPropagation();descargarSemanasArea(decodeURIComponent('${encoded}'),'${mes}')">↓ Solo esta</button>
+      </label>`;
+  }).join('');
+
+  openM('m-area-imgs');
+}
+
+function getAreasSeleccionadasExport(){
+  return [...document.querySelectorAll('.area-export-check:checked')]
+    .map(chk=>decodeURIComponent(chk.value));
+}
+
+function seleccionarTodasAreasExport(valor){
+  document.querySelectorAll('.area-export-check').forEach(chk=>chk.checked=valor);
+}
+
+function descargarAreasSeleccionadas(){
+  const mes=document.getElementById('exp-mes').value;
+  if(!mes)return toast('Seleccioná un mes','err');
+
+  const seleccionadas=getAreasSeleccionadasExport();
+  if(!seleccionadas.length)return toast('Seleccioná al menos un área','err');
+
+  const semanas=getWeeksForMonthMondaySunday(mes);
+  let total=0;
+  let delay=0;
+
+  semanas.forEach((sem,idx)=>{
+    const groups=buildSelectedAreasWeekGroups(sem,seleccionadas);
+    if(!groups.length)return;
+
+    total++;
+    setTimeout(()=>{
+      renderWeeklyCanvas({
+        mode:'general',
+        area:{nombre:'Áreas seleccionadas',icono:'🧩'},
+        mes,
+        semana:sem,
+        semanaNumero:idx+1,
+        totalWeeks:semanas.length,
+        groups,
+        filename:`rotaciones-seleccionadas-${mes}-semana-${idx+1}.png`
+      });
+    },delay);
+
+    delay+=500;
+  });
+
+  if(!total)return toast('Las áreas seleccionadas no tienen reuniones en estas semanas','err');
+  toast(`Descargando ${total} placa${total!==1?'s':''} unificada${total!==1?'s':''} de ${seleccionadas.length} área${seleccionadas.length!==1?'s':''} ✓`);
+}
+
+
+function descargarTodasImagenesPorArea(){
+  const mes=document.getElementById('exp-mes').value;
+  if(!mes)return toast('Seleccioná un mes','err');
+
+  const areas=getAreasExportablesSemanal(mes);
+  if(!areas.length)return toast('No hay áreas para descargar','err');
+
+  let total=0;
+  areas.forEach(area=>total+=countPlacasArea(area.nombre,mes));
+
+  if(!total)return toast('No hay placas por área para descargar','err');
+
+  let delay=0;
+  areas.forEach(area=>{
+    setTimeout(()=>descargarSemanasArea(area.nombre,mes,true),delay);
+    delay+=Math.max(500,countPlacasArea(area.nombre,mes)*240);
+  });
+
+  toast(`Descargando ${total} placa${total!==1?'s':''} por área ✓`);
+}
+
+function descargarImagenesGeneralesSemanales(){
+  const mes=document.getElementById('exp-mes').value;
+  if(!mes)return toast('Seleccioná un mes','err');
+
+  const semanas=getWeeksForMonthMondaySunday(mes);
+  let total=0;
+  let delay=0;
+
+  semanas.forEach((sem,idx)=>{
+    const groups=buildGeneralWeekGroups(sem);
+    if(!groups.length)return;
+    total++;
+    setTimeout(()=>descargarSemanaGeneral(mes,sem,idx+1,true),delay);
+    delay+=500;
+  });
+
+  if(!total)return toast('No hay reuniones en las semanas de este mes','err');
+  toast(`Descargando ${total} placa${total!==1?'s':''} generales ✓`);
+}
+
+function countPlacasArea(areaNombre,mes){
+  const semanas=getWeeksForMonthMondaySunday(mes);
+  return semanas.filter(sem=>getServiciosAreaEnSemana(areaNombre,sem).length>0).length;
+}
+
+// ──────────────────────────────────────
+// SEMANAS REALES: LUNES A DOMINGO
+// ──────────────────────────────────────
+function getWeeksForMonthMondaySunday(mes){
+  const [y,m]=mes.split('-').map(Number);
+
+  const first=new Date(y,m-1,1,12,0,0);
+  const last=new Date(y,m,0,12,0,0);
+
+  const start=new Date(first);
+  const startWeekday=(start.getDay()+6)%7; // lunes=0, domingo=6
+  start.setDate(start.getDate()-startWeekday);
+
+  const end=new Date(last);
+  const endWeekday=(end.getDay()+6)%7;
+  end.setDate(end.getDate()+(6-endWeekday));
+
+  const weeks=[];
+  let cursor=new Date(start);
+  let n=1;
+
+  while(cursor<=end){
+    const from=new Date(cursor);
+    const to=new Date(cursor);
+    to.setDate(to.getDate()+6);
+
+    weeks.push({
+      index:n,
+      from,
+      to,
+      fromISO:dateToISO(from),
+      toISO:dateToISO(to)
+    });
+
+    cursor.setDate(cursor.getDate()+7);
+    n++;
+  }
+
+  return weeks;
+}
+
+function dateToISO(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseISODate(iso){
+  return new Date(iso+'T12:00:00');
+}
+
+function fmtShortDate(d){
+  return `${d.getDate()} ${MESES[d.getMonth()].slice(0,3).toLowerCase()}`;
+}
+
+function fmtWeekRange(sem){
+  return `${fmtShortDate(sem.from)} al ${fmtShortDate(sem.to)}`;
+}
+
+function getHoraMinutos(hora){
+  if(!hora)return 0;
+  const m=String(hora).match(/(\d{1,2}):(\d{2})/);
+  if(!m)return 0;
+  return Number(m[1])*60+Number(m[2]);
+}
+
+// ──────────────────────────────────────
+// REUNIONES EN RANGO, AUNQUE SEAN DE OTRO MES
+// ──────────────────────────────────────
+function getReunionesEnRango(fromDate,toDate){
+  const arr=[];
+
+  Object.keys(DB.reuniones||{}).forEach(mesKey=>{
+    (DB.reuniones[mesKey]||[]).forEach(r=>{
+      const d=parseISODate(r.fecha);
+      if(d>=fromDate&&d<=toDate)arr.push(r);
+    });
+  });
+
+  arr.sort((a,b)=>{
+    if(a.fecha!==b.fecha)return a.fecha.localeCompare(b.fecha);
+    const ta=DB.tipos.find(x=>x.id===a.tipoId);
+    const tb=DB.tipos.find(x=>x.id===b.tipoId);
+    return getHoraMinutos(ta?ta.hora:'')-getHoraMinutos(tb?tb.hora:'');
+  });
+
+  return arr;
+}
+
+function getAreasExportablesSemanal(mes){
+  const semanas=getWeeksForMonthMondaySunday(mes);
+  const nombres=new Set();
+  const base=(typeof dbAreas==='function'?dbAreas():(DB.areas||[]));
+
+  semanas.forEach(sem=>{
+    const reuniones=getReunionesEnRango(sem.from,sem.to);
+    reuniones.forEach(r=>{
+      const t=DB.tipos.find(x=>x.id===r.tipoId);
+      (t?t.puestos:[]).forEach(p=>{if(p.area)nombres.add(p.area);});
+    });
+  });
+
+  return [...nombres].map(nombre=>{
+    const a=base.find(x=>x.nombre===nombre);
+    return {nombre,icono:a?a.icono:'◈',color:a?a.color:'purple'};
+  }).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+}
+
+// ──────────────────────────────────────
+// SERVICIOS POR ÁREA EN UNA SEMANA
+// ──────────────────────────────────────
+function getServiciosAreaEnSemana(areaNombre,sem){
+  const reuniones=getReunionesEnRango(sem.from,sem.to);
+  const servicios=[];
+
+  reuniones.forEach(r=>{
+    const t=DB.tipos.find(x=>x.id===r.tipoId);
+    if(!t)return;
+
+    const fd=parseISODate(r.fecha);
+
+    (t.puestos||[]).forEach((p,i)=>{
+      if(p.area!==areaNombre)return;
+
+      const sid=(r.asig||{})[i];
+      const srv=sid?DB.servidores.find(s=>s.id==sid):null;
+
+      servicios.push({
+        reunionKey:r.id||`${r.fecha}-${t.nombre}-${t.hora}`,
+        fechaRaw:r.fecha,
+        fechaObj:fd,
+        dia:DIAS[fd.getDay()],
+        numeroDia:fd.getDate(),
+        tipo:t.nombre||'Reunión',
+        hora:t.hora||'',
+        area:p.area||'Área',
+        puesto:p.nombre||'Puesto',
+        servidor:srv?srv.nombre:'Sin asignar'
+      });
+    });
+  });
+
+  return servicios;
+}
+
+function agruparServiciosParaCanvas(servicios,general=false){
+  const map={};
+
+  servicios.forEach(s=>{
+    const key=`${s.fechaRaw}-${s.tipo}-${s.hora}`;
+
+    if(!map[key]){
+      map[key]={
+        fechaRaw:s.fechaRaw,
+        fechaObj:s.fechaObj,
+        dia:s.dia,
+        numeroDia:s.numeroDia,
+        tipo:s.tipo,
+        hora:s.hora,
+        lines:[]
+      };
+    }
+
+    if(general){
+      map[key].lines.push(`${s.area} · ${s.puesto}: ${s.servidor}`);
+    }else{
+      map[key].lines.push(`${s.puesto}: ${s.servidor}`);
+    }
+  });
+
+  return Object.values(map).sort((a,b)=>{
+    if(a.fechaRaw!==b.fechaRaw)return a.fechaRaw.localeCompare(b.fechaRaw);
+    return getHoraMinutos(a.hora)-getHoraMinutos(b.hora);
+  });
+}
+
+// ──────────────────────────────────────
+// DESCARGA POR ÁREA — 1 PLACA POR SEMANA COMPLETA
+// ──────────────────────────────────────
+function descargarSemanasArea(areaNombre,mes,silent=false){
+  const semanas=getWeeksForMonthMondaySunday(mes);
+  const area=getAreasExportablesSemanal(mes).find(a=>a.nombre===areaNombre)||{nombre:areaNombre,icono:'◈'};
+  let total=0;
+
+  semanas.forEach((sem,idx)=>{
+    const servicios=getServiciosAreaEnSemana(areaNombre,sem);
+    if(!servicios.length)return;
+
+    const groups=agruparServiciosParaCanvas(servicios,false);
+    total++;
+
+    const localTotal=total;
+    setTimeout(()=>{
+      renderWeeklyCanvas({
+        mode:'area',
+        area,
+        mes,
+        semana:sem,
+        semanaNumero:idx+1,
+        totalWeeks:semanas.length,
+        groups,
+        filename:`rotaciones-${areaSlug(area.nombre)}-${mes}-semana-${idx+1}.png`
+      });
+    },localTotal*180);
+  });
+
+  if(!total&&!silent)return toast(`No hay servicios para ${areaNombre}`,'err');
+  if(!silent)toast(`Serie semanal de ${areaNombre} generada ✓`);
+}
+
+// ──────────────────────────────────────
+// DESCARGA GENERAL — 1 PLACA POR SEMANA COMPLETA
+// ──────────────────────────────────────
+function descargarSemanaGeneral(mes,sem,semanaNumero,silent=false){
+  const groups=buildGeneralWeekGroups(sem);
+  if(!groups.length){
+    if(!silent)toast('Esa semana no tiene reuniones','err');
+    return;
+  }
+
+  renderWeeklyCanvas({
+    mode:'general',
+    area:{nombre:'Todas las áreas',icono:'🧩'},
+    mes,
+    semana:sem,
+    semanaNumero,
+    totalWeeks:getWeeksForMonthMondaySunday(mes).length,
+    groups,
+    filename:`rotaciones-general-${mes}-semana-${semanaNumero}.png`
+  });
+}
+
+
+function buildSelectedAreasWeekGroups(sem,selectedAreas){
+  const reuniones=getReunionesEnRango(sem.from,sem.to);
+  const servicios=[];
+  const selectedSet=new Set(selectedAreas);
+
+  reuniones.forEach(r=>{
+    const t=DB.tipos.find(x=>x.id===r.tipoId);
+    if(!t)return;
+
+    const fd=parseISODate(r.fecha);
+
+    (t.puestos||[]).forEach((p,i)=>{
+      if(!selectedSet.has(p.area))return;
+
+      const sid=(r.asig||{})[i];
+      const srv=sid?DB.servidores.find(s=>s.id==sid):null;
+
+      servicios.push({
+        reunionKey:r.id||`${r.fecha}-${t.nombre}-${t.hora}`,
+        fechaRaw:r.fecha,
+        fechaObj:fd,
+        dia:DIAS[fd.getDay()],
+        numeroDia:fd.getDate(),
+        tipo:t.nombre||'Reunión',
+        hora:t.hora||'',
+        area:p.area||'Área',
+        puesto:p.nombre||'Puesto',
+        servidor:srv?srv.nombre:'Sin asignar'
+      });
+    });
+  });
+
+  return agruparServiciosParaCanvas(servicios,true);
+}
+
+function buildGeneralWeekGroups(sem){
+  const reuniones=getReunionesEnRango(sem.from,sem.to);
+  const servicios=[];
+
+  reuniones.forEach(r=>{
+    const t=DB.tipos.find(x=>x.id===r.tipoId);
+    if(!t)return;
+
+    const fd=parseISODate(r.fecha);
+
+    (t.puestos||[]).forEach((p,i)=>{
+      const sid=(r.asig||{})[i];
+      const srv=sid?DB.servidores.find(s=>s.id==sid):null;
+
+      servicios.push({
+        reunionKey:r.id||`${r.fecha}-${t.nombre}-${t.hora}`,
+        fechaRaw:r.fecha,
+        fechaObj:fd,
+        dia:DIAS[fd.getDay()],
+        numeroDia:fd.getDate(),
+        tipo:t.nombre||'Reunión',
+        hora:t.hora||'',
+        area:p.area||'Área',
+        puesto:p.nombre||'Puesto',
+        servidor:srv?srv.nombre:'Sin asignar'
+      });
+    });
+  });
+
+  return agruparServiciosParaCanvas(servicios,true);
+}
+
+// ──────────────────────────────────────
+// CANVAS 16:9 — SEMANA COMPLETA LUNES A DOMINGO
+// Usa columnas para no partir la semana
+// ──────────────────────────────────────
+
+
+function renderWeeklyCanvas({mode,area,mes,semana,semanaNumero,totalWeeks,groups,filename}){
+  const [y,m]=mes.split('-').map(Number);
+
+  const isUnified=(mode==='general');
+
+  // Por área: mantenemos un formato más apaisado.
+  // Unificadas / general: pasamos a 4:3 para evitar tanto vacío horizontal.
+  const W=isUnified?1600:1920;
+  const H=isUnified?1200:1080;
+  const PAD=isUnified?34:42;
+  const HEADER_H=isUnified?112:118;
+  const FOOTER_H=isUnified?28:30;
+  const TOP_Y=HEADER_H+10;
+  const AVAILABLE_H=H-TOP_Y-FOOTER_H-12;
+
+  const canvas=document.createElement('canvas');
+  canvas.width=W;
+  canvas.height=H;
+  const ctx=canvas.getContext('2d');
+
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#17172a');
+  grad.addColorStop(1,'#080810');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,H);
+
+  ctx.fillStyle='rgba(99,102,241,.16)';
+  ctx.beginPath();
+  ctx.arc(W-95,72,isUnified?175:190,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle='rgba(34,211,238,.08)';
+  ctx.beginPath();
+  ctx.arc(60,H-25,isUnified?130:140,0,Math.PI*2);
+  ctx.fill();
+
+  // Header principal
+  ctx.fillStyle='#fff';
+  ctx.font=`800 ${isUnified?34:36}px Inter, Arial, sans-serif`;
+  ctx.textAlign='left';
+  ctx.fillText(`${area.icono||'◈'} ${area.nombre}`,PAD,52);
+
+  ctx.fillStyle='rgba(255,255,255,.78)';
+  ctx.font=`600 ${isUnified?17:18}px Inter, Arial, sans-serif`;
+  ctx.fillText(`${MESES[m-1]} ${y} · Semana ${semanaNumero} de ${totalWeeks} · ${fmtWeekRange(semana)}`,PAD,80);
+
+  ctx.fillStyle='rgba(255,255,255,.46)';
+  ctx.font=`500 ${isUnified?12.5:13}px Inter, Arial, sans-serif`;
+  ctx.fillText('Conexión con Dios · Área Técnica',PAD,102);
+
+  const totalPuestos=groups.reduce((acc,g)=>acc+g.lines.length,0);
+  const badge=`${groups.length} reuniones · ${totalPuestos} puestos`;
+  drawWeeklyPill(ctx,badge,W-PAD-(isUnified?250:300),48,isUnified?250:300,isUnified?32:34);
+
+  if(!groups.length){
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    ctx.font='600 26px Inter, Arial, sans-serif';
+    ctx.fillText('Sin asignaciones para esta semana.',PAD,TOP_Y+60);
+    downloadCanvas(canvas,filename);
+    return;
+  }
+
+  const layout=computeWeeklyLayout(groups,AVAILABLE_H,mode);
+  const columns=layout.columns;
+  const scale=layout.scale;
+  const colGap=isUnified?12:10;
+  const colW=(W-PAD*2-colGap*(columns-1))/columns;
+
+  const distributed=distributeGroupsIntoColumns(groups,columns,scale,mode);
+
+  distributed.forEach((colGroups,colIdx)=>{
+    let x=PAD+colIdx*(colW+colGap);
+    let yPos=TOP_Y;
+
+    colGroups.forEach(g=>{
+      const cardH=getGroupCardHeight(g,scale,mode);
+      const titleH=(isUnified?36:34)*scale;
+
+      weeklyRoundRect(ctx,x,yPos,colW,cardH,12*scale,'rgba(255,255,255,.065)');
+      weeklyRoundRect(ctx,x,yPos,colW,titleH,12*scale,'rgba(99,102,241,.92)');
+
+      // Título compacto: todo junto del lado izquierdo
+      const leftX=x+10*scale;
+      const titleY=yPos+(isUnified?24:23)*scale;
+
+      ctx.textAlign='left';
+      ctx.fillStyle='#fff';
+      ctx.font=`800 ${Math.max(isUnified?14.5:15,isUnified?18:19*scale)}px Inter, Arial, sans-serif`;
+      const fechaTxt=`${g.dia} ${g.numeroDia}`;
+      ctx.fillText(fechaTxt,leftX,titleY);
+
+      const fechaW=ctx.measureText(fechaTxt).width;
+      ctx.fillStyle='rgba(255,255,255,.92)';
+      ctx.font=`700 ${Math.max(isUnified?10.5:11,isUnified?13.5:14*scale)}px Inter, Arial, sans-serif`;
+      const detailTxt=`· ${g.tipo}${g.hora?' · '+g.hora:''}`;
+      const safeDetail=trimCanvasText(ctx,detailTxt,colW-fechaW-34*scale);
+      ctx.fillText(safeDetail,leftX+fechaW+8*scale,titleY);
+
+      let lineY=yPos+titleH+(isUnified?13:13)*scale;
+
+      g.lines.forEach((line,lineIdx)=>{
+        if(lineIdx%2===0){
+          ctx.fillStyle='rgba(255,255,255,.028)';
+          ctx.fillRect(x+4*scale,lineY-13.5*scale,colW-8*scale,(isUnified?18:18)*scale);
+        }
+
+        const isUnassigned=/Sin asignar/i.test(line);
+        ctx.fillStyle=isUnassigned?'rgba(248,113,113,.96)':'rgba(255,255,255,.94)';
+        ctx.font=`700 ${Math.max(isUnified?10:10.5,isUnified?12.4:13*scale)}px Inter, Arial, sans-serif`;
+        ctx.textAlign='left';
+
+        const safeLine=trimCanvasText(ctx,`• ${line}`,colW-18*scale);
+        ctx.fillText(safeLine,x+10*scale,lineY);
+
+        lineY+=(isUnified?17.5:18)*scale;
+      });
+
+      yPos+=cardH+(isUnified?8:7)*scale;
+    });
+  });
+
+  ctx.fillStyle='rgba(255,255,255,.34)';
+  ctx.font='500 12px Inter, Arial, sans-serif';
+  ctx.textAlign='left';
+  ctx.fillText(`Generado ${new Date().toLocaleDateString('es-AR')}`,PAD,H-12);
+
+  downloadCanvas(canvas,filename);
+}
+
+function computeWeeklyLayout(groups,availableH,mode){
+  const isUnified=(mode==='general');
+
+  // Vistas unificadas/general: 2 columnas fijas sobre un lienzo 4:3.
+  if(isUnified){
+    const columns=2;
+    for(let scale of [1,.97,.94,.91,.88,.85,.82,.79,.76,.73,.70,.67,.64,.61,.58,.55,.52,.49,.46]){
+      const cols=distributeGroupsIntoColumns(groups,columns,scale,mode);
+      const tallest=Math.max(...cols.map(col=>col.reduce((acc,g)=>acc+getGroupCardHeight(g,scale,mode)+8*scale,0)));
+      if(tallest<=availableH){
+        return {columns,scale};
+      }
+    }
+    return {columns:2,scale:0.44};
+  }
+
+  // Por área: mantenemos layout flexible.
+  const maxCols=2;
+  for(let columns=1;columns<=maxCols;columns++){
+    for(let scale of [1,.97,.94,.91,.88,.85,.82,.79,.76,.73,.70,.67,.64,.61,.58,.55]){
+      const cols=distributeGroupsIntoColumns(groups,columns,scale,mode);
+      const tallest=Math.max(...cols.map(col=>col.reduce((acc,g)=>acc+getGroupCardHeight(g,scale,mode)+7*scale,0)));
+      if(tallest<=availableH){
+        return {columns,scale};
+      }
+    }
+  }
+
+  return {columns:2,scale:0.52};
+}
+
+function distributeGroupsIntoColumns(groups,columns,scale,mode){
+  const isUnified=(mode==='general');
+  const gap=isUnified?8*scale:7*scale;
+  const cols=Array.from({length:columns},()=>[]);
+  const heights=Array.from({length:columns},()=>0);
+
+  groups.forEach(g=>{
+    let idx=0;
+    for(let i=1;i<columns;i++){
+      if(heights[i]<heights[idx])idx=i;
+    }
+    cols[idx].push(g);
+    heights[idx]+=getGroupCardHeight(g,scale,mode)+gap;
+  });
+
+  return cols;
+}
+
+function getGroupCardHeight(g,scale,mode){
+  const isUnified=(mode==='general');
+  const titleH=(isUnified?36:34)*scale;
+  const topPad=(isUnified?8:8)*scale;
+  const rowH=(isUnified?17.5:18)*scale;
+  const bottomPad=(isUnified?8:8)*scale;
+  return titleH+topPad+(g.lines.length*rowH)+bottomPad;
+}
+function trimCanvasText(ctx,text,maxWidth){
+  if(ctx.measureText(text).width<=maxWidth)return text;
+  let out=text;
+  while(out.length>4&&ctx.measureText(out+'…').width>maxWidth){
+    out=out.slice(0,-1);
+  }
+  return out+'…';
+}
+
+function drawWeeklyPill(ctx,text,x,y,w,h){
+  weeklyRoundRect(ctx,x,y,w,h,h/2,'rgba(255,255,255,.12)');
+  ctx.fillStyle='rgba(255,255,255,.88)';
+  ctx.font='700 18px Inter, Arial, sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText(text,x+w/2,y+28);
+  ctx.textAlign='left';
+}
+
+function weeklyRoundRect(ctx,x,y,w,h,r,fill){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+  if(fill){
+    ctx.fillStyle=fill;
+    ctx.fill();
+  }
+}
+
+function downloadCanvas(canvas,filename){
+  const a=document.createElement('a');
+  a.download=filename;
+  a.href=canvas.toDataURL('image/png');
+  a.click();
+}
+
+function areaSlug(str){
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/(^-|-$)/g,'');
+}
+
 
 
 function exportPDF(){
